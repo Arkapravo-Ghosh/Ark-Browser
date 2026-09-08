@@ -17,8 +17,6 @@ type Route = typeof routes[number];
 const draft = get<HTMLTextAreaElement>('draft');
 const clearButton = get<HTMLButtonElement>('clear-draft');
 const dialog = get<HTMLDialogElement>('clear-dialog');
-const theme = get<HTMLSelectElement>('theme');
-const themeKey = 'ark.preview.theme.v1';
 let currentRoute: Route = 'home';
 let newChatPending = false;
 let conversationId = '';
@@ -30,13 +28,6 @@ if (isSidePanel) {
   document.documentElement.classList.add('side-panel-surface');
 }
 
-function readSession(key: string): string {
-  try {
-    return sessionStorage.getItem(key) || '';
-  } catch {
-    return '';
-  }
-}
 
 function saveDraft(): void {
   clearButton.disabled = !draft.value;
@@ -200,26 +191,13 @@ document.querySelectorAll<HTMLButtonElement>('[data-prompt]').forEach(button => 
   });
 });
 
-const savedTheme = readSession(themeKey);
-if (['system', 'light', 'dark'].includes(savedTheme)) {
-  theme.value = savedTheme;
+// Appearance syncs automatically with browser / system theme.
+delete document.documentElement.dataset['theme'];
+try {
+  sessionStorage.removeItem('ark.preview.theme.v1');
+} catch {
+  // Appearance still works when tab-session storage is unavailable.
 }
-function applyTheme(): void {
-  if (theme.value === 'system') {
-    delete document.documentElement.dataset['theme'];
-  } else {
-    document.documentElement.dataset['theme'] = theme.value;
-  }
-}
-applyTheme();
-theme.addEventListener('change', () => {
-  applyTheme();
-  try {
-    sessionStorage.setItem(themeKey, theme.value);
-  } catch {
-    // Appearance still works when tab-session storage is unavailable.
-  }
-});
 
 const searchInput = get<HTMLInputElement>('search-input');
 const searchForm = get<HTMLFormElement>('search-form');

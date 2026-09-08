@@ -173,7 +173,7 @@ async def run(args):
                   'ark://newtab loads the Ark UI through native routing', results)
             check(await cdp.evaluate(page, "document.querySelector('#home-title').textContent.includes('Welcome to Ark')"),
                   'First opening displays Welcome to Ark', results)
-            await cdp.evaluate(page, "document.querySelector('#theme').value = 'light'; document.querySelector('#theme').dispatchEvent(new Event('change'))")
+            await cdp.call('Emulation.setEmulatedMedia', {'features': [{'name': 'prefers-color-scheme', 'value': 'light'}]}, session=page)
             await cdp.screenshot(page, artifacts / 'new-tab-light.png', 1440, 1000)
             check(await cdp.evaluate(page, "document.querySelector('.send-button').disabled"),
                   'Sending is unavailable without a model', results)
@@ -223,12 +223,13 @@ async def run(args):
             await cdp.wait_for(page, "!document.querySelector('#about-page').hidden")
             check(await cdp.evaluate(page, "document.querySelector('#about-page').textContent.includes('© 2026 Arkapravo Ghosh') && document.querySelector('#about-page').textContent.includes('Based on Chromium')"),
                   'About names Arkapravo Ghosh and retains Chromium attribution', results)
-            await cdp.evaluate(page, "location.hash = 'home'; document.querySelector('#theme').value = 'dark'; document.querySelector('#theme').dispatchEvent(new Event('change'))")
+            await cdp.evaluate(page, "location.hash = 'home'")
+            await cdp.call('Emulation.setEmulatedMedia', {'features': [{'name': 'prefers-color-scheme', 'value': 'dark'}]}, session=page)
             await cdp.wait_for(page, "!document.querySelector('#home-page').hidden")
             await cdp.screenshot(page, artifacts / 'new-tab-dark.png', 1440, 1000)
             check(await cdp.evaluate(page, "getComputedStyle(document.body).backgroundColor === 'rgb(30, 35, 31)'"),
                   'Dark appearance changes rendered palette', results)
-            await cdp.evaluate(page, "document.querySelector('#theme').value = 'light'; document.querySelector('#theme').dispatchEvent(new Event('change'))")
+            await cdp.call('Emulation.setEmulatedMedia', {'features': [{'name': 'prefers-color-scheme', 'value': 'light'}]}, session=page)
             await cdp.screenshot(page, artifacts / 'new-tab-narrow.png', 390, 844)
             check(await cdp.evaluate(page, "getComputedStyle(document.querySelector('.mobile-nav')).display !== 'none'"),
                   'Narrow layout keeps workspace navigation available', results)
