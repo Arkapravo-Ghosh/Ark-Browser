@@ -6,3 +6,6 @@
 /chromium/.gcs_entries
 docs/
 /product/dev-profile/
+/product/test-results/
+__pycache__/
+/dist/

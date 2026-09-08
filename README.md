@@ -2,7 +2,15 @@
 
 Ark Browser is an AI-powered desktop browser built on Chromium. It is designed to combine everyday browsing with an integrated AI assistant while letting users choose where their models run.
 
-> Ark Browser is in early development. The current source builds as Chromium while Ark branding and product features are being implemented.
+> Ark Browser is in early development. The first native WebUI foundation is implemented; the app bundle remains Chromium while Ark packaging and AI services are developed.
+
+## Current UI foundation
+
+The new tab opens an Ark workspace with ordinary web search, browser shortcuts, a draft composer, model setup previews, advanced parameter descriptions, and an About page. Light/dark appearance and responsive layouts are included. AI sending and model connections are not available yet.
+
+Built-in pages use `ark://`, including `ark://settings/`, `ark://history/`, and `ark://ark-chat/`. Chromium's canonical internal origins and security boundaries are preserved behind the alias. Policy and extension new-tab overrides, plus private browsing landing pages, retain their normal behavior.
+
+UI source lives in `product/ui`; native controllers and a buildable resource snapshot live in the Chromium fork. See [product development and limitations](product/README.md).
 
 ## Planned capabilities
 
@@ -24,6 +32,8 @@ Ark-Browser/
 │   └── src/           Ark Chromium fork submodule
 ├── depot_tools/       Pinned Chromium development tools submodule
 ├── product/           Ark-owned product configuration and assets
+│   ├── ui/            Ark WebUI source and initial artwork
+│   ├── tests/         Compiled-browser smoke checks
 │   └── config/dev.gn  Development build configuration
 └── scripts/env.sh     zsh environment helper
 ```
@@ -50,9 +60,10 @@ gclient sync
 gclient runhooks
 ```
 
-Generate and compile the development build:
+Synchronize the product UI, then generate and compile the development build:
 
 ```zsh
+python3 "$ARK_ROOT/scripts/sync-product-ui.py"
 cd "$CHROMIUM_SRC"
 mkdir -p out/Ark
 cp "$ARK_ROOT/product/config/dev.gn" out/Ark/args.gn
@@ -69,6 +80,8 @@ open "$CHROMIUM_SRC/out/Ark/Chromium.app" --args \
 
 The application bundle remains `Chromium.app` until Ark's branding and packaging changes are complete. Do not use a personal Chrome or Chromium profile for development builds.
 
+The existing successful development output is `out/ArkDev`; use that directory instead of `out/Ark` to rebuild it incrementally without changing its GN arguments. Test from the workspace root with `python3 product/tests/smoke_ui.py` (Python `websockets` required). Screenshots and test output go to `product/test-results/`.
+
 ## Source repositories
 
 - Ark workspace: [Arkapravo-Ghosh/Ark-Browser](https://github.com/Arkapravo-Ghosh/Ark-Browser)
@@ -77,4 +90,4 @@ The application bundle remains `Chromium.app` until Ark's branding and packaging
 
 ## Attribution
 
-Ark Browser is based on the Chromium open-source project. Chromium and bundled third-party components remain subject to their respective licenses and notices. Ark-specific licensing terms will be published with the first distributable release.
+Copyright © 2026 Arkapravo Ghosh for Ark Browser. Ark Browser is based on the Chromium open-source project. Chromium and bundled third-party components remain subject to their respective licenses and notices. Ark-specific licensing terms will be published with the first distributable release.
