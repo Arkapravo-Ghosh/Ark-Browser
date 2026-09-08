@@ -1,0 +1,7 @@
+[submodule "chromium/src"]
+	path = chromium/src
+	url = https://github.com/Arkapravo-Ghosh/Ark-Browser-Chromium.git
+	branch = ark-browser
+[submodule "depot_tools"]
+	path = depot_tools
+	url = https://chromium.googlesource.com/chromium/tools/depot_tools.git
