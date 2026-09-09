@@ -10,8 +10,8 @@ Copyright © 2026 Arkapravo Ghosh. Chromium and bundled third-party components r
 - `ark://ark-chat/` opens the workspace. Hash routes `#home`, `#chat`, `#models`, `#advanced`, and `#about` share one document.
 - `ark://settings/`, `ark://history/`, `ark://downloads/`, `ark://bookmarks/`, `ark://version/`, and other built-in hosts resolve through Chromium's existing controllers. The omnibox displays `ark://` for canonical Chromium pages as well.
 - Web search/address entry uses the current profile's Chromium autocomplete classifier and selected search engine. This small field permits HTTP(S) results; the native address bar remains available for all browser URLs.
-- The Ark logo button sits at the extreme left of the toolbar before Back and toggles a 420 px Ark AI side panel.
-- New-tab Web and Ask Ark modes share one input. Ask Ark stores the prompt in the current conversation, opens the sidebar, and continues there.
+- The Ark logo button sits at the extreme right of the toolbar and toggles a 420 px Ark AI side panel that smoothly squeezes the web contents.
+- New-tab Web and Ask AI modes share one input. Ask AI stores the prompt in the current conversation, opens the sidebar, and continues there.
 - Composer drafts are stored through a profile-scoped C++ service in SQLite at `ArkAI/conversations.sqlite3`. Off-the-record profiles use a separate in-memory database.
 - Model pages describe all five planned cloud connections and the planned Hugging Face/local path. Advanced options explain all 17 specified parameters. Sending, credentials, downloads, and parameter editing are unavailable.
 - Light, dark, and system appearance; narrow-window navigation; focus indicators; reduced-motion support; confirmation dialog keyboard behavior; and Chromium/copyright attribution.

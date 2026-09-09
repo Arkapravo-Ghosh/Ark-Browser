@@ -59,7 +59,7 @@
       <main id="main" tabindex="-1">
         <section id="home-page" class="page home-page" aria-labelledby="home-title">
           <div class="home-heading"><span id="home-eyebrow" class="eyebrow">WELCOME TO ARK</span><h1 id="home-title">Welcome to Ark<span class="accent">.</span></h1><p id="home-tagline">Your everyday browser, with space to think and room for possibility.</p></div>
-          <div class="search-mode" role="group" aria-label="New tab input mode"><button id="web-mode" aria-pressed="true">Web</button><button id="ai-mode" aria-pressed="false">Ask Ark</button></div>
+          <div class="search-mode" role="group" aria-label="New tab input mode"><button id="web-mode" aria-pressed="true">Web</button><button id="ai-mode" aria-pressed="false">Ask AI</button></div>
           <div id="search-box-wrapper" class="search-box-wrapper">
             <form id="search-form" class="search" role="search">
               <svg class="mat-icon search-icon" aria-hidden="true"><use href="#mat-search"></use></svg>
@@ -97,9 +97,9 @@
       <footer><span>ARK BROWSER</span><span>Based on Chromium</span></footer>
     </div>
   </div>
-  <section id="composer" class="composer-area" aria-label="Ask Ark AI">
-    <div class="composer-heading"><h2>Ask Ark AI</h2><a href="#chat" id="expand-chat" aria-label="Open full chat workspace">Open workspace <svg class="mat-icon mat-icon-sm" aria-hidden="true"><use href="#mat-arrow-outward"></use></svg></a></div>
-    <div class="composer-box"><label class="sr-only" for="draft">Message to Ark AI</label><textarea id="draft" rows="3" maxlength="32000" placeholder="What’s on your mind?"></textarea><div class="composer-toolbar"><a class="model-picker" href="#models"><span class="status-dot"></span> Choose a model <svg class="mat-icon mat-icon-sm" aria-hidden="true"><use href="#mat-expand-more"></use></svg></a><button class="send-button" disabled aria-label="Send message, unavailable until a model is connected" title="Connect a model before sending"><svg class="mat-icon" aria-hidden="true"><use href="#mat-arrow-upward"></use></svg></button></div></div>
+  <section id="composer" class="composer-area" aria-label="Ask AI">
+    <div class="composer-heading"><h2>Ask AI</h2><a href="#chat" id="expand-chat" aria-label="Open full chat workspace">Open workspace <svg class="mat-icon mat-icon-sm" aria-hidden="true"><use href="#mat-arrow-outward"></use></svg></a></div>
+    <div class="composer-box"><label class="sr-only" for="draft">Message to AI</label><textarea id="draft" rows="3" maxlength="32000" placeholder="What’s on your mind?"></textarea><div class="composer-toolbar"><a class="model-picker" href="#models"><span class="status-dot"></span> Choose a model <svg class="mat-icon mat-icon-sm" aria-hidden="true"><use href="#mat-expand-more"></use></svg></a><button class="send-button" disabled aria-label="Send message, unavailable until a model is connected" title="Connect a model before sending"><svg class="mat-icon" aria-hidden="true"><use href="#mat-arrow-upward"></use></svg></button></div></div>
     <div class="composer-caption"><span>No model connected · Nothing is sent</span><button id="clear-draft" class="subtle-button" disabled><svg class="mat-icon mat-icon-sm" aria-hidden="true"><use href="#mat-delete"></use></svg> Clear draft</button></div>
     <div class="suggestions" aria-label="Draft suggestions"><button data-prompt="Help me think through an idea: ">Think through an idea <svg class="mat-icon mat-icon-sm ext-arrow" aria-hidden="true"><use href="#mat-arrow-outward"></use></svg></button><button data-prompt="Help me write a first draft of ">Write a first draft <svg class="mat-icon mat-icon-sm ext-arrow" aria-hidden="true"><use href="#mat-arrow-outward"></use></svg></button><button data-prompt="Help me understand ">Learn something new <svg class="mat-icon mat-icon-sm ext-arrow" aria-hidden="true"><use href="#mat-arrow-outward"></use></svg></button></div>
     <p id="draft-status" class="status" role="status"></p>

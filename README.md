@@ -1,50 +1,70 @@
 # Ark Browser
 
-Ark Browser is an AI-powered desktop browser built on Chromium. It is designed to combine everyday browsing with an integrated AI assistant while letting users choose where their models run.
+Ark Browser is an AI-powered desktop browser built on Chromium. It is designed to combine fast, everyday browsing with an integrated AI assistant while keeping users in complete control of their data and where models run.
 
-> Ark Browser is in early development. The first native WebUI foundation is implemented; the app bundle remains Chromium while Ark packaging and AI services are developed.
+> **Status**: Ark Browser is in active development. Native WebUI foundations, side panel orchestration, custom settings, and Ark branding are implemented. The development application builds as `Ark Browser.app`.
 
-## Current UI foundation
+---
 
-The new tab opens an Ark workspace with ordinary web search, browser shortcuts, a draft composer, model setup previews, advanced parameter descriptions, and an About page. Light/dark appearance and responsive layouts are included. AI sending and model connections are not available yet.
+## Key Features & Current Foundation
 
-Built-in pages use `ark://`, including `ark://settings/`, `ark://history/`, and `ark://ark-chat/`. Chromium's canonical internal origins and security boundaries are preserved behind the alias. Policy and extension new-tab overrides, plus private browsing landing pages, retain their normal behavior.
+### 1. Integrated AI Sidebar (Right-Docked & Non-Overlapping)
+- **Content Squeeze**: When the AI sidebar is toggled open, it smoothly animates and squeezes the browsing web contents instead of overlaying them, ensuring full visibility of web pages while chatting.
+- **Ergonomic Toolbar Toggle**: The Ark AI sidebar button is positioned at the **extreme right** of the toolbar, directly adjacent to the side panel.
 
-UI source lives in `product/ui`; native controllers and a buildable resource snapshot live in the Chromium fork. See [product development and limitations](product/README.md).
+### 2. Workspace & New Tab Experience (`ark://newtab`)
+- **Unified Mode Switcher**: Easily switch between standard **Web** navigation and **Ask AI** mode.
+- **Ask AI Mode**: Querying in Ask AI mode automatically prepares the draft and opens the AI sidebar.
+- **Draft Composer**: Accessible in both the new tab page and the sidebar, with an auto-expanding, clean text area free of awkward manual resize handles.
+- **Theme Synchronization**: WebUI pages automatically synchronize with system and browser appearance preferences (light/dark mode).
 
-## Planned capabilities
+### 3. Native Settings & Privacy Focus (`ark://settings`)
+- **Your Profile**: Settings sections are tailored for local profiles; Google sync dependencies and "Google Services" options have been removed from both Settings and the profile avatar menu.
+- **Standalone Settings**: Google's AI configuration panels have been removed in favor of Ark's upcoming native model orchestration.
+- **Browser Sign-In Disallowed by Default**: Protects privacy and keeps browsing local without intrusive account prompts or account interception bubbles.
+- **Ark Browser Branding**: Settings left navigation and the "About Ark Browser" page feature official Ark Browser logos.
 
-- AI chat in a resizable right sidebar, expandable into a full browser tab.
-- AI chat directly on the new tab page.
-- Cloud model connections for OpenAI, Anthropic, Amazon Bedrock, Together AI, and compatible custom endpoints.
-- Hugging Face model discovery, download management, and local inference.
-- Per-model advanced settings with clear descriptions for generation and performance parameters.
-- Explicit page and selected-text context controls.
-- Ark-controlled browser releases and updates.
-- Ark Browser branding with clear Chromium attribution on the About page.
+### 4. Native `ark://` Scheme
+- Built-in pages use `ark://`, including `ark://newtab/`, `ark://settings/`, `ark://history/`, `ark://bookmarks/`, `ark://downloads/`, and `ark://ark-chat/`.
+- Aliases map seamlessly to Chromium internal security and WebUI boundaries.
 
-## Repository layout
+---
+
+## Planned Capabilities
+
+- **Cloud Model Integrations**: Bring-your-own-key support for OpenAI, Anthropic, Amazon Bedrock, Together AI, and custom OpenAI-compatible endpoints.
+- **Local On-Device Inference**: Hugging Face model discovery, verified GGUF download management, and local offline inference via llama.cpp / ONNX.
+- **Page Context & Memory**: Explicit controls for attaching page content, selected text, and session history.
+- **Release Channels**: Dedicated automated build and release distribution for macOS, Linux, and Windows.
+
+---
+
+## Repository Layout
 
 ```text
 Ark-Browser/
 ├── chromium/
-│   ├── .gclient       Local Chromium checkout configuration
-│   └── src/           Ark Chromium fork submodule
-├── depot_tools/       Pinned Chromium development tools submodule
-├── product/           Ark-owned product configuration and assets
-│   ├── ui/            Ark WebUI source and initial artwork
-│   ├── tests/         Compiled-browser smoke checks
-│   └── config/dev.gn  Development build configuration
-└── scripts/env.sh     zsh environment helper
+│   ├── .gclient          Local Chromium checkout configuration
+│   └── src/              Ark Chromium fork submodule (branch: ark-browser)
+├── depot_tools/          Pinned Chromium development tools submodule
+├── product/              Ark-owned product assets, tests, and configuration
+│   ├── ui/               Ark WebUI source (HTML, CSS, TypeScript, SVG)
+│   ├── tests/            Compiled-browser CDP smoke tests
+│   └── config/dev.gn     Development GN build configuration
+└── scripts/
+    ├── env.sh            zsh environment configuration helper
+    └── sync-product-ui.py Synchronizes product/ui into the Chromium fork
 ```
 
-Chromium's own `DEPS` and `gclient` workflow continue to manage its platform-specific source dependencies. The `chromium/src` submodule points to the Ark fork, where browser-level product changes are developed.
+---
 
 ## Building on macOS
 
-Chromium builds require substantial disk space, memory, and build time. Install Xcode and its command-line tools first. Refer to Chromium's [macOS build instructions](https://chromium.googlesource.com/chromium/src/+/main/docs/mac_build_instructions.md) for current host requirements.
+Chromium builds require substantial disk space (100 GB+), RAM, and build time. Install Xcode and command-line tools first.
 
-Clone the repository and initialize the pinned source and tooling:
+### 1. Environment Setup
+
+Clone the repository with submodules:
 
 ```zsh
 git clone --recurse-submodules https://github.com/Arkapravo-Ghosh/Ark-Browser.git
@@ -52,7 +72,9 @@ cd Ark-Browser
 source scripts/env.sh
 ```
 
-Fetch Chromium's pinned dependencies and run its setup hooks:
+### 2. Fetch Dependencies
+
+Sync dependencies and generate gclient hooks:
 
 ```zsh
 cd "$CHROMIUM_ROOT"
@@ -60,34 +82,45 @@ gclient sync
 gclient runhooks
 ```
 
-Synchronize the product UI, then generate and compile the development build:
+### 3. Compile Development Build
+
+Synchronize WebUI assets and build `chrome`:
 
 ```zsh
 python3 "$ARK_ROOT/scripts/sync-product-ui.py"
 cd "$CHROMIUM_SRC"
-mkdir -p out/Ark
-cp "$ARK_ROOT/product/config/dev.gn" out/Ark/args.gn
-gn gen out/Ark
-autoninja -C out/Ark chrome
+autoninja -C out/ArkDev chrome
 ```
 
-Launch with an isolated development profile:
+### 4. Launch Ark Browser
+
+Launch with an isolated development user profile:
 
 ```zsh
-open "$CHROMIUM_SRC/out/Ark/Chromium.app" --args \
+open "$CHROMIUM_SRC/out/ArkDev/Ark Browser.app" --args \
   --user-data-dir="$ARK_ROOT/product/dev-profile"
 ```
 
-The application bundle remains `Chromium.app` until Ark's branding and packaging changes are complete. Do not use a personal Chrome or Chromium profile for development builds.
+### 5. Automated UI Verification
 
-The existing successful development output is `out/ArkDev`; use that directory instead of `out/Ark` to rebuild it incrementally without changing its GN arguments. Test from the workspace root with `python3 product/tests/smoke_ui.py` (Python `websockets` required). Screenshots and test output go to `product/test-results/`.
+Run the automated CDP smoke tests from the workspace root:
 
-## Source repositories
+```zsh
+python3 product/tests/smoke_ui.py
+```
 
-- Ark workspace: [Arkapravo-Ghosh/Ark-Browser](https://github.com/Arkapravo-Ghosh/Ark-Browser)
-- Ark Chromium fork: [Arkapravo-Ghosh/Ark-Browser-Chromium](https://github.com/Arkapravo-Ghosh/Ark-Browser-Chromium)
-- Chromium upstream: [chromium/chromium](https://github.com/chromium/chromium)
+Test results and screenshots are saved to `product/test-results/`.
 
-## Attribution
+---
 
-Copyright © 2026 Arkapravo Ghosh for Ark Browser. Ark Browser is based on the Chromium open-source project. Chromium and bundled third-party components remain subject to their respective licenses and notices. Ark-specific licensing terms will be published with the first distributable release.
+## Source Repositories
+
+- **Main Repository**: [Arkapravo-Ghosh/Ark-Browser](https://github.com/Arkapravo-Ghosh/Ark-Browser)
+- **Chromium Fork**: [Arkapravo-Ghosh/Ark-Browser-Chromium](https://github.com/Arkapravo-Ghosh/Ark-Browser-Chromium) (branch `ark-browser`)
+
+---
+
+## Attribution & License
+
+Copyright © 2026 Arkapravo Ghosh for Ark Browser.
+Ark Browser is based on the Chromium open-source project. Chromium and bundled third-party components remain subject to their respective licenses and notices. Ark-specific licensing terms will be published with the first distributable release.

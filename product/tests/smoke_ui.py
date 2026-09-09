@@ -199,9 +199,12 @@ async def run(args):
                   'Cancel preserves draft', results)
             await cdp.evaluate(page, "document.querySelector('#clear-draft').click(); document.querySelector('#clear-dialog').close('clear')")
             await cdp.wait_for(page, "!document.querySelector('#draft').value")
+            await asyncio.sleep(.3)
             check(await cdp.evaluate(page, "document.querySelector('#clear-draft').disabled"),
                   'Clear removes the draft and updates controls', results)
-            await cdp.evaluate(page, "document.querySelector('[data-prompt]').click(); document.querySelector('#clear-draft').click()")
+            await cdp.evaluate(page, "document.querySelector('[data-prompt]').click()")
+            await asyncio.sleep(.3)
+            await cdp.evaluate(page, "document.querySelector('#clear-draft').click()")
             await cdp.call('Input.dispatchKeyEvent', {'type': 'keyDown', 'key': 'Escape', 'code': 'Escape', 'windowsVirtualKeyCode': 27}, page)
             await cdp.wait_for(page, "!document.querySelector('#clear-dialog').open")
             check(await cdp.evaluate(page, "document.querySelector('#draft').value.length > 0"),
@@ -240,8 +243,8 @@ async def run(args):
                   'A separate Ark surface reads the profile conversation draft', results)
             ai_query = 'I need to buy Nike shoes, show me a few'
             await cdp.evaluate(second, f"location.hash = 'home'; document.querySelector('#ai-mode').click(); document.querySelector('#search-input').value = {json.dumps(ai_query)}; document.querySelector('#search-form').requestSubmit()")
-            await cdp.wait_for(second, "document.querySelector('#search-status').textContent === 'Opened in Ark AI.'")
-            check(True, 'New-tab Ask Ark mode hands its query to the AI sidebar', results)
+            await cdp.wait_for(second, "document.querySelector('#search-status').textContent === 'Opened in AI sidebar.'")
+            check(True, 'New-tab Ask AI mode hands its query to the AI sidebar', results)
             context = (await cdp.call('Target.createBrowserContext'))['browserContextId']
             private = await cdp.page(context)
             await cdp.navigate(private, 'ark://newtab/')

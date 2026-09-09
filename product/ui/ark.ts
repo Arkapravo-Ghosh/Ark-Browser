@@ -373,8 +373,8 @@ function setSearchMode(ai: boolean): void {
   hideSuggestions();
   get('web-mode').setAttribute('aria-pressed', String(!ai));
   get('ai-mode').setAttribute('aria-pressed', String(ai));
-  searchInput.placeholder = ai ? 'Ask Ark anything' : 'Search the web or enter an address';
-  searchInput.setAttribute('aria-label', ai ? 'Ask Ark AI' : 'Search the web or enter an address');
+  searchInput.placeholder = ai ? 'Ask AI anything' : 'Search the web or enter an address';
+  searchInput.setAttribute('aria-label', ai ? 'Ask AI' : 'Search the web or enter an address');
   searchInput.focus();
 }
 get('web-mode').addEventListener('click', () => setSearchMode(false));
@@ -394,7 +394,7 @@ searchForm.addEventListener('submit', async event => {
       if (!success) {
         throw new Error('Sidebar could not be opened');
       }
-      get('search-status').textContent = 'Opened in Ark AI.';
+      get('search-status').textContent = 'Opened in AI sidebar.';
       return;
     }
     const {success} = await PageHandler.getRemote().navigate(query);
