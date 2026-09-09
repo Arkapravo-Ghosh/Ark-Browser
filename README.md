@@ -111,6 +111,27 @@ python3 product/tests/smoke_ui.py
 
 Test results and screenshots are saved to `product/test-results/`.
 
+### 6. Packaging & DMG Distribution
+
+#### Development DMG Installer
+For quick local testing of component development builds:
+```zsh
+./scripts/build-dmg.sh
+```
+Packages `dist/Ark-Browser.dmg` directly from `out/ArkDev`.
+
+#### Production Release DMG Installer
+For generating an optimized, minimal-footprint release installer matching Google Chrome and Edge sizing (~1 GB installed, ~250 MB compressed DMG):
+```zsh
+./scripts/build-release-dmg.sh --build
+```
+This automatically configures `out/ArkRelease` with:
+- `is_debug = false`
+- `is_component_build = false` (monolithic framework, zero loose component dylibs)
+- `symbol_level = 0` (stripped DWARF debug symbols)
+- `dcheck_always_on = false`
+and packages `dist/Ark-Browser-Release.dmg`.
+
 ---
 
 ## Source Repositories
