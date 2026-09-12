@@ -3,7 +3,7 @@
 """Exercise the compiled Ark browser using disposable profiles and DevTools.
 
 Requires Python 3 and websockets. No provider credentials or external requests.
-Run from the workspace: python3 product/tests/smoke_ui.py
+Run from the workspace: python3 tests/smoke_ui.py
 """
 import argparse
 import asyncio
@@ -19,7 +19,7 @@ import time
 
 import websockets
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class LocalPage(http.server.BaseHTTPRequestHandler):
@@ -457,5 +457,5 @@ def default_binary() -> Path:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', type=Path, default=default_binary())
-    parser.add_argument('--artifacts', type=Path, default=ROOT / 'product/test-results')
+    parser.add_argument('--artifacts', type=Path, default=ROOT / 'test-results')
     asyncio.run(run(parser.parse_args()))

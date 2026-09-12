@@ -46,14 +46,14 @@ Ark-Browser/
 ├── chromium/
 │   ├── .gclient          Local Chromium checkout configuration
 │   └── src/              Ark Chromium fork submodule (branch: ark-browser)
+├── config/
+│   └── dev.gn            Development GN build configuration
 ├── depot_tools/          Pinned Chromium development tools submodule
-├── product/              Ark-owned product assets, tests, and configuration
-│   ├── ui/               Ark WebUI source (HTML, CSS, TypeScript, SVG)
-│   ├── tests/            Compiled-browser CDP smoke tests
-│   └── config/dev.gn     Development GN build configuration
+├── tests/
+│   └── smoke_ui.py       Compiled-browser CDP smoke tests
 └── scripts/
     ├── env.sh            zsh environment configuration helper
-    └── sync-product-ui.py Synchronizes product/ui into the Chromium fork
+    └── generate-ark-icons.py  Generates application icons from the Ark SVG
 ```
 
 ---
@@ -84,10 +84,9 @@ gclient runhooks
 
 ### 3. Compile Development Build
 
-Synchronize WebUI assets and build `chrome`:
+Compile the `chrome` target:
 
 ```zsh
-python3 "$ARK_ROOT/scripts/sync-product-ui.py"
 cd "$CHROMIUM_SRC"
 autoninja -C out/ArkDev chrome
 ```
@@ -98,7 +97,7 @@ Launch with an isolated development user profile:
 
 ```zsh
 open "$CHROMIUM_SRC/out/ArkDev/Ark Browser.app" --args \
-  --user-data-dir="$ARK_ROOT/product/dev-profile"
+  --user-data-dir="$ARK_ROOT/dev-profile"
 ```
 
 ### 5. Automated UI Verification
@@ -106,10 +105,10 @@ open "$CHROMIUM_SRC/out/ArkDev/Ark Browser.app" --args \
 Run the automated CDP smoke tests from the workspace root:
 
 ```zsh
-python3 product/tests/smoke_ui.py
+python3 tests/smoke_ui.py
 ```
 
-Test results and screenshots are saved to `product/test-results/`.
+Test results and screenshots are saved to `test-results/`.
 
 ### 6. Packaging & DMG Distribution
 

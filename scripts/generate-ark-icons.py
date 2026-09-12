@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 # Copyright 2026 Arkapravo Ghosh
-"""Generate all application icon assets and brand logos from product/ui/ark.svg."""
+"""Generate all application icon assets and brand logos from the Ark SVG source."""
 
 import json
 from pathlib import Path
 import shutil
 import subprocess
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / 'chromium/src'
-SVG_SOURCE = ROOT / 'product/ui/ark.svg'
+SVG_SOURCE = ROOT / 'chromium/src/chrome/browser/resources/ark/ark.svg'
 
 MAC_APPICON_SVG_CONTENT = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
@@ -44,8 +45,7 @@ def render_png(svg_path: Path, output_path: Path, width: int, height: int):
 def main():
     print(f"Generating icon assets from {SVG_SOURCE}...")
 
-    temp_dir = ROOT / 'product/test-results'
-    temp_dir.mkdir(parents=True, exist_ok=True)
+    temp_dir = Path(tempfile.mkdtemp(prefix='ark-icons-'))
     mac_appicon_svg = temp_dir / 'ark_mac_appicon.svg'
     mac_appicon_svg.write_text(MAC_APPICON_SVG_CONTENT)
 
