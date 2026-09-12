@@ -264,6 +264,22 @@ async def run(args):
             await cdp.evaluate(second, f"document.querySelector('#web-mode').click(); document.querySelector('#search-input').value = {json.dumps(local_url)}; document.querySelector('#search-form').requestSubmit()")
             await cdp.wait_for(second, "document.title === 'Ark navigation smoke'")
             check(True, 'Native search field opens an ordinary web page', results)
+
+            # Test reverse rewrite for ark://newtab and chrome://newtab, and internal URL navigation
+            await cdp.navigate(second, 'ark://newtab/')
+            await cdp.wait_for(second, "location.host === 'ark-chat'")
+            history = await cdp.call('Page.getNavigationHistory', session=second)
+            current_entry = history.get('entries', [])[history.get('currentIndex', 0)]
+            check(current_entry.get('userTypedURL') == 'ark://newtab/',
+                  'New Tab Page accepts ark://newtab/ navigation', results)
+
+            await cdp.evaluate(second, "document.querySelector('#web-mode').click(); document.querySelector('#search-input').value = 'ark://settings'; document.querySelector('#search-form').requestSubmit()")
+            await cdp.wait_for(second, "location.host === 'settings'")
+            check(True, 'Native search field navigates to internal ark:// URLs', results)
+
+            await cdp.navigate(second, 'chrome://newtab/')
+            await cdp.wait_for(second, "location.host === 'ark-chat'")
+            check(True, 'chrome://newtab navigates to Ark New Tab Page', results)
             # Exercise canonical built-in controllers through the new scheme.
             for host, title in [('settings', 'Settings'), ('history', 'History'), ('downloads', 'Downloads'), ('bookmarks', 'Bookmarks'), ('version', 'About Version'), ('credits', 'Credits')]:
                 await cdp.navigate(second, f'ark://{host}/')
@@ -313,24 +329,49 @@ async def run(args):
             check(first_color_info and first_color_info.get('title') == 'Viridian' and first_color_info.get('checked') is True and first_color_info.get('totalChildren') == 16,
                   'Viridian theme is default and positioned first in appearance settings', results)
 
-            # Autofill page check: Related Google Services must not be present
+            # Autofill page check: Related Google Services and Smarter form understanding must not be present
             await cdp.navigate(second, 'ark://settings/autofill')
             await cdp.wait_for(second, "!!document.querySelector('settings-ui')?.shadowRoot?.querySelector('settings-main')?.shadowRoot?.querySelector('settings-autofill-page-index')?.shadowRoot?.querySelector('settings-autofill-page')")
-            autofill_has_related_services = await cdp.evaluate(second, """(() => {
+            autofill_info = await cdp.evaluate(second, """(() => {
                 const autofillPage = document.querySelector('settings-ui')?.shadowRoot
                     ?.querySelector('settings-main')?.shadowRoot
                     ?.querySelector('settings-autofill-page-index')?.shadowRoot
                     ?.querySelector('settings-autofill-page')?.shadowRoot;
-                if (!autofillPage) return false;
+                if (!autofillPage) return null;
                 const text = autofillPage.textContent || '';
-                return text.includes('Related Google Services') ||
-                       text.includes('Google Wallet') ||
-                       text.includes('Google Account') ||
-                       !!autofillPage.querySelector('#passwordManagerRelatedService') ||
-                       !!autofillPage.querySelector('#googleWalletRelatedService');
+                const card = autofillPage.querySelector('collapsible-autofill-settings-card');
+                const cardText = card ? (card.shadowRoot?.textContent || '') : '';
+                return {
+                    hasRelatedServices: text.includes('Related Google Services') ||
+                        text.includes('Google Wallet') ||
+                        text.includes('Google Account') ||
+                        !!autofillPage.querySelector('#passwordManagerRelatedService') ||
+                        !!autofillPage.querySelector('#googleWalletRelatedService'),
+                    hasSmarterForm: cardText.includes('Smarter form understanding') ||
+                        !!card?.shadowRoot?.querySelector('#optInToggle'),
+                    hasWhenOn: cardText.includes('When on'),
+                    hasThingsToConsider: cardText.includes('Things to consider') ||
+                        cardText.includes('securely processing data on Google') ||
+                        !!card?.shadowRoot?.querySelector('.settings-columned-section')
+                };
             })()""")
-            check(not autofill_has_related_services,
+            check(autofill_info and not autofill_info.get('hasRelatedServices'),
                   'Autofill settings page does not contain Related Google Services section', results)
+            check(autofill_info and not autofill_info.get('hasSmarterForm'),
+                  'Autofill settings page does not contain Smarter form understanding section', results)
+            check(autofill_info and not autofill_info.get('hasWhenOn') and not autofill_info.get('hasThingsToConsider'),
+                  'Autofill settings page does not contain When on and Things to consider sections', results)
+            # Expand the card to screenshot
+            await cdp.evaluate(second, """(() => {
+                const card = document.querySelector('settings-ui')?.shadowRoot
+                    ?.querySelector('settings-main')?.shadowRoot
+                    ?.querySelector('settings-autofill-page-index')?.shadowRoot
+                    ?.querySelector('settings-autofill-page')?.shadowRoot
+                    ?.querySelector('collapsible-autofill-settings-card');
+                card?.shadowRoot?.querySelector('cr-expand-button')?.click();
+            })()""")
+            await asyncio.sleep(0.5)
+            await cdp.screenshot(second, artifacts / 'autofill_settings.png', 1440, 1000)
 
             # Appearance page check: "Ark Browser Panels" is present and "Chrome Panels" is absent
             await cdp.navigate(second, 'ark://settings/appearance')
