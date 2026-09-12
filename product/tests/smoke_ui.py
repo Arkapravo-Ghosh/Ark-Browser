@@ -312,6 +312,83 @@ async def run(args):
             })()""")
             check(first_color_info and first_color_info.get('title') == 'Viridian' and first_color_info.get('checked') is True and first_color_info.get('totalChildren') == 16,
                   'Viridian theme is default and positioned first in appearance settings', results)
+
+            # Autofill page check: Related Google Services must not be present
+            await cdp.navigate(second, 'ark://settings/autofill')
+            await cdp.wait_for(second, "!!document.querySelector('settings-ui')?.shadowRoot?.querySelector('settings-main')?.shadowRoot?.querySelector('settings-autofill-page-index')?.shadowRoot?.querySelector('settings-autofill-page')")
+            autofill_has_related_services = await cdp.evaluate(second, """(() => {
+                const autofillPage = document.querySelector('settings-ui')?.shadowRoot
+                    ?.querySelector('settings-main')?.shadowRoot
+                    ?.querySelector('settings-autofill-page-index')?.shadowRoot
+                    ?.querySelector('settings-autofill-page')?.shadowRoot;
+                if (!autofillPage) return false;
+                const text = autofillPage.textContent || '';
+                return text.includes('Related Google Services') ||
+                       text.includes('Google Wallet') ||
+                       text.includes('Google Account') ||
+                       !!autofillPage.querySelector('#passwordManagerRelatedService') ||
+                       !!autofillPage.querySelector('#googleWalletRelatedService');
+            })()""")
+            check(not autofill_has_related_services,
+                  'Autofill settings page does not contain Related Google Services section', results)
+
+            # Appearance page check: "Ark Browser Panels" is present and "Chrome Panels" is absent
+            await cdp.navigate(second, 'ark://settings/appearance')
+            await cdp.wait_for(second, "!!document.querySelector('settings-ui')?.shadowRoot?.querySelector('settings-main')?.shadowRoot?.querySelector('settings-appearance-page-index')?.shadowRoot?.querySelector('settings-appearance-page')")
+            appearance_has_ark_panels = await cdp.evaluate(second, """(() => {
+                const appPage = document.querySelector('settings-ui')?.shadowRoot
+                    ?.querySelector('settings-main')?.shadowRoot
+                    ?.querySelector('settings-appearance-page-index')?.shadowRoot
+                    ?.querySelector('settings-appearance-page')?.shadowRoot;
+                if (!appPage) return false;
+                const text = appPage.textContent || '';
+                return text.includes('Ark Browser Panels') && !text.includes('Chrome Panels');
+            })()""")
+            check(appearance_has_ark_panels,
+                  'Appearance settings renames Chrome Panels to Ark Browser Panels', results)
+
+            # Search engines page check:
+            # 1. "part of Ark Browser" instead of "part of Chrome"
+            # 2. "add search engines to Ark Browser" instead of "add search engines to Chrome"
+            # 3. Gemini shortcut is not prebuilt in search engines
+            await cdp.navigate(second, 'ark://settings/searchEngines')
+            await cdp.wait_for(second, """(() => {
+                const sp = document.querySelector('settings-ui')?.shadowRoot
+                    ?.querySelector('settings-main')?.shadowRoot
+                    ?.querySelector('settings-search-page-index')?.shadowRoot
+                    ?.querySelector('settings-search-engines-page');
+                return !!sp && !!sp.shadowRoot && (sp.shadowRoot.textContent || '').length > 0;
+            })()""")
+            search_page_info = await cdp.evaluate(second, """(async () => {
+                const searchPage = document.querySelector('settings-ui')?.shadowRoot
+                    ?.querySelector('settings-main')?.shadowRoot
+                    ?.querySelector('settings-search-page-index')?.shadowRoot
+                    ?.querySelector('settings-search-engines-page');
+                if (!searchPage || !searchPage.shadowRoot) return null;
+                const text = searchPage.shadowRoot.textContent || '';
+                let extExplanation = '';
+                try {
+                    const {loadTimeData} = await import('chrome://resources/js/load_time_data.js');
+                    extExplanation = loadTimeData.getString('searchEnginesExtensionExplanation');
+                } catch (e) {
+                    extExplanation = e.toString();
+                }
+                return {
+                    hasArkPart: text.includes('part of Ark Browser'),
+                    hasChromePart: text.includes('part of Chrome'),
+                    extExplanation: extExplanation,
+                    hasArkExtension: extExplanation.includes('add search engines to Ark Browser'),
+                    hasChromeExtension: extExplanation.includes('Chrome'),
+                    hasGemini: text.toLowerCase().includes('gemini')
+                };
+            })()""")
+            check(search_page_info and search_page_info.get('hasArkPart') and not search_page_info.get('hasChromePart'),
+                  'Search engines page explains "part of Ark Browser" instead of "part of Chrome"', results)
+            check(search_page_info and search_page_info.get('hasArkExtension') and not search_page_info.get('hasChromeExtension'),
+                  'Search engines extension string explains "add search engines to Ark Browser"', results)
+            check(search_page_info and not search_page_info.get('hasGemini'),
+                  'Gemini shortcut is not prebuilt on search engines page', results)
+
             errors = [e for e in cdp.events if e['method'] == 'Runtime.exceptionThrown'
                       and 'ark' in json.dumps(e)]
             check(not errors, 'No uncaught Ark renderer exceptions', results)
