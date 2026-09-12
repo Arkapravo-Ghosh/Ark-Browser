@@ -270,6 +270,25 @@ async def run(args):
                 await cdp.wait_for(second, f"location.host === {json.dumps(host)}")
                 check(await cdp.evaluate(second, "!document.querySelector('#main-frame-error') && (document.body.children.length > 0 || document.body.innerText.length > 0)"),
                       f'ark://{host} resolves to the real Chromium page', results)
+            await cdp.navigate(second, 'ark://chrome-urls/')
+            await cdp.wait_for(second, "!!document.querySelector('chrome-urls-app')?.shadowRoot?.querySelector('a')")
+            check(await cdp.evaluate(second, "[...document.querySelector('chrome-urls-app').shadowRoot.querySelectorAll('a')].every(a => !a.textContent.includes('chrome://') && !a.getAttribute('href').startsWith('chrome://'))"),
+                  'Built-in page directory exposes only ark:// links', results)
+
+            await cdp.navigate(second, 'ark://settings/')
+            await cdp.wait_for(second, "!!document.querySelector('settings-ui')?.shadowRoot?.querySelector('#leftMenu')?.shadowRoot?.querySelector('#extensionsLink')")
+            ext_href = await cdp.evaluate(second, "document.querySelector('settings-ui').shadowRoot.querySelector('#leftMenu').shadowRoot.querySelector('#extensionsLink').getAttribute('href')")
+            check(ext_href == 'ark://extensions', f'Settings extensions link points to ark://extensions (got {ext_href})', results)
+
+            await cdp.navigate(second, 'ark://history/')
+            await cdp.wait_for(second, "!!document.querySelector('history-app')?.shadowRoot?.querySelector('#contentSideBar')?.shadowRoot?.querySelector('#clear-browsing-data')")
+            cbd_href = await cdp.evaluate(second, "document.querySelector('history-app').shadowRoot.querySelector('#contentSideBar').shadowRoot.querySelector('#clear-browsing-data').getAttribute('href')")
+            check(cbd_href == 'ark://settings/clearBrowserData', f'History clear browsing data link points to ark://settings/clearBrowserData (got {cbd_href})', results)
+
+            await cdp.navigate(second, 'ark://settings/help')
+            await cdp.wait_for(second, "!!document.querySelector('settings-ui')?.shadowRoot?.querySelector('settings-main')?.shadowRoot?.querySelector('settings-about-page')?.shadowRoot?.querySelector('a[href*=\"credits\"]')")
+            credits_href = await cdp.evaluate(second, "document.querySelector('settings-ui').shadowRoot.querySelector('settings-main').shadowRoot.querySelector('settings-about-page').shadowRoot.querySelector('a[href*=\"credits\"]').getAttribute('href')")
+            check(credits_href == 'ark://credits/', f'About page open source license link points to ark://credits/ (got {credits_href})', results)
             errors = [e for e in cdp.events if e['method'] == 'Runtime.exceptionThrown'
                       and 'ark' in json.dumps(e)]
             check(not errors, 'No uncaught Ark renderer exceptions', results)

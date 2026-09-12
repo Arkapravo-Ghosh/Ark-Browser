@@ -40,7 +40,7 @@ Keep the snapshot changes with the fork commit, and the product source with the 
 python3 product/tests/smoke_ui.py
 
 # Visible native app, always with an isolated development profile:
-open chromium/src/out/ArkDev/Chromium.app --args \
+open "chromium/src/out/ArkDev/Ark Browser.app" --args \
   --user-data-dir="$PWD/product/dev-profile" ark://newtab/
 ```
 
