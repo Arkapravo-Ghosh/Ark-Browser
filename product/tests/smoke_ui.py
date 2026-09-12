@@ -289,6 +289,29 @@ async def run(args):
             await cdp.wait_for(second, "!!document.querySelector('settings-ui')?.shadowRoot?.querySelector('settings-main')?.shadowRoot?.querySelector('settings-about-page')?.shadowRoot?.querySelector('a[href*=\"credits\"]')")
             credits_href = await cdp.evaluate(second, "document.querySelector('settings-ui').shadowRoot.querySelector('settings-main').shadowRoot.querySelector('settings-about-page').shadowRoot.querySelector('a[href*=\"credits\"]').getAttribute('href')")
             check(credits_href == 'ark://credits/', f'About page open source license link points to ark://credits/ (got {credits_href})', results)
+            await cdp.evaluate(second, "document.querySelector('settings-ui').shadowRoot.querySelector('settings-main').shadowRoot.querySelector('settings-about-page').shadowRoot.querySelector('a[href*=\"credits\"]').click()")
+            await asyncio.sleep(2)
+            targets = (await cdp.call('Target.getTargets'))['targetInfos']
+            credits_target = next((t for t in targets if 'credits' in t['url'] or 'credits' in t['title'].lower()), None)
+            check(credits_target is not None and 'blocked' not in credits_target['url'],
+                  'About page open source license link navigates to credits without being blocked', results)
+
+            await cdp.navigate(second, 'chrome://customize-chrome-side-panel.top-chrome/')
+            await cdp.wait_for(second, "!!document.querySelector('customize-chrome-app')?.shadowRoot?.querySelector('customize-chrome-appearance')?.shadowRoot?.querySelector('cr-theme-color-picker')?.shadowRoot?.querySelector('cr-grid')")
+            first_color_info = await cdp.evaluate(second, """(() => {
+                const picker = document.querySelector('customize-chrome-app').shadowRoot
+                    .querySelector('customize-chrome-appearance').shadowRoot
+                    .querySelector('cr-theme-color-picker').shadowRoot;
+                const grid = picker.querySelector('cr-grid');
+                const first = grid.children[0];
+                return {
+                    title: first?.getAttribute('title'),
+                    checked: first?.hasAttribute('checked'),
+                    totalChildren: grid?.children.length
+                };
+            })()""")
+            check(first_color_info and first_color_info.get('title') == 'Viridian' and first_color_info.get('checked') is True and first_color_info.get('totalChildren') == 16,
+                  'Viridian theme is default and positioned first in appearance settings', results)
             errors = [e for e in cdp.events if e['method'] == 'Runtime.exceptionThrown'
                       and 'ark' in json.dumps(e)]
             check(not errors, 'No uncaught Ark renderer exceptions', results)
