@@ -24,7 +24,7 @@ Ark Browser is an AI-powered desktop browser built on Chromium. It is designed t
 
 When you download Ark Browser using a web browser and drag it to `/Applications`, macOS Gatekeeper may display a security prompt on initial launch:
 
-> **"Ark Browser.app" Not Opened**  
+> **"Ark Browser.app" Not Opened**
 > *Apple could not verify "Ark Browser.app" is free of malware that may harm your Mac or compromise your privacy.*
 
 #### Why this happens
