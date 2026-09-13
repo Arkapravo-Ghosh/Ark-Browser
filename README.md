@@ -131,6 +131,26 @@ This automatically configures `out/ArkRelease` with:
 - `dcheck_always_on = false`
 and packages `dist/Ark-Browser-Release.dmg`.
 
+### 7. Publishing Releases & Updates
+
+Ark Browser features an integrated update infrastructure connected to GitHub Releases:
+
+1. Build, hash, and publish a release in a single command:
+   ```zsh
+   python3 scripts/publish-release.py -v 155.0.8049.0-alpha.0.0.2 --build
+   ```
+   This command:
+   - Builds the production DMG via `scripts/build-release-dmg.sh`.
+   - Computes the exact file size and SHA-256 hash.
+   - Automatically updates `release/version.json`.
+   - Creates the GitHub Release via `gh release create` and uploads `Ark-Browser-PreRelease.dmg`.
+
+2. In-Browser Update Checks:
+   - Navigating to `ark://settings/help` queries `release/version.json`.
+   - macOS arm64 installs are checked automatically against release assets.
+   - Windows installs are forward-compatible with future `.exe` releases.
+   - Linux builds cleanly delegate updates to system package managers with all update check errors suppressed.
+
 ---
 
 ## Source Repositories

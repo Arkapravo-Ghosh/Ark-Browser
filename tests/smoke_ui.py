@@ -24,6 +24,27 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class LocalPage(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.path == '/version.json':
+            body = json.dumps({
+                'name': 'Ark Browser',
+                'version': '155.0.8049.0-alpha.0.0.1',
+                'release_tag': '155.0.8049.0-alpha.0.0.1',
+                'channel': 'stable',
+                'prerelease': True,
+                'platforms': {
+                    'mac_arm64': {
+                        'url': 'https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/download/155.0.8049.0-alpha.0.0.1/Ark-Browser-PreRelease.dmg',
+                        'sha256': '80f4ba0dd69644eba4a261f514ac4a16918d95f9c1b44c227a794e7655bebad0',
+                        'size': 161834856
+                    }
+                }
+            }).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         body = b'<!doctype html><title>Ark navigation smoke</title><h1>Browsing works</h1>'
         self.send_response(200)
         self.send_header('Content-Type', 'text/html')
@@ -161,7 +182,8 @@ async def run(args):
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
     try:
-        async with browser(args.binary.resolve(), artifacts) as cdp:
+        manifest_flag = f'--ark-update-manifest-url=http://127.0.0.1:{server.server_address[1]}/version.json'
+        async with browser(args.binary.resolve(), artifacts, [manifest_flag]) as cdp:
             ready = "!!document.querySelector('#provider-grid .provider-card')"
             page = await cdp.first_page()
             await cdp.wait_for(page, ready)
@@ -429,6 +451,32 @@ async def run(args):
                   'Search engines extension string explains "add search engines to Ark Browser"', results)
             check(search_page_info and not search_page_info.get('hasGemini'),
                   'Gemini shortcut is not prebuilt on search engines page', results)
+
+            # About Ark Browser page check (ark://settings/help):
+            await cdp.navigate(second, 'ark://settings/help')
+            await cdp.wait_for(second, """(() => {
+                const about = document.querySelector('settings-ui')?.shadowRoot
+                    ?.querySelector('settings-main')?.shadowRoot
+                    ?.querySelector('settings-about-page');
+                return !!about && !!about.shadowRoot;
+            })()""")
+            await asyncio.sleep(2)
+            about_info = await cdp.evaluate(second, """(() => {
+                const about = document.querySelector('settings-ui')?.shadowRoot
+                    ?.querySelector('settings-main')?.shadowRoot
+                    ?.querySelector('settings-about-page');
+                if (!about || !about.shadowRoot) return null;
+                const text = about.shadowRoot.textContent || '';
+                return {
+                    hasArkTitle: text.includes('Ark Browser'),
+                    hasGoogleUpdateError: text.includes('Google Update error') || text.includes('error occurred while checking for updates: 0x') || text.includes('104'),
+                    hasUpToDate: text.toLowerCase().includes('up to date'),
+                    hasVersion: text.includes('155.0.8049.0')
+                };
+            })()""")
+            await cdp.screenshot(second, artifacts / 'about_page_verified.png', 1440, 1000)
+            check(about_info and about_info.get('hasArkTitle') and not about_info.get('hasGoogleUpdateError') and about_info.get('hasUpToDate') and about_info.get('hasVersion'),
+                  'About Ark Browser page displays version and reports up to date without errors', results)
 
             errors = [e for e in cdp.events if e['method'] == 'Runtime.exceptionThrown'
                       and 'ark' in json.dumps(e)]
