@@ -110,7 +110,8 @@ def main():
     manifest['prerelease'] = bool(args.prerelease)
     manifest['release_notes_url'] = f"https://github.com/{REPO_SLUG}/releases/tag/{version_tag}"
 
-    asset_download_url = f"https://github.com/{REPO_SLUG}/releases/download/{version_tag}/Ark-Browser-PreRelease.dmg"
+    target_dmg_name = 'Ark-Browser-PreRelease.dmg' if args.prerelease else 'Ark-Browser-Release.dmg'
+    asset_download_url = f"https://github.com/{REPO_SLUG}/releases/download/{version_tag}/{target_dmg_name}"
 
     if 'platforms' not in manifest:
         manifest['platforms'] = {}
@@ -150,18 +151,21 @@ def main():
         print(f"You can manually create the release at:")
         print(f"  https://github.com/{REPO_SLUG}/releases/new?tag={version_tag}")
         print(f"Upload assets:")
-        print(f"  - {dmg_path} (rename as Ark-Browser-PreRelease.dmg)")
+        print(f"  - {target_dmg_name}")
         print(f"  - {VERSION_JSON_PATH}")
         return
 
     print(f"\n4. Uploading release to GitHub via gh CLI ({REPO_SLUG})...")
-    # Prepare asset with target name Ark-Browser-PreRelease.dmg
-    asset_spec = f"{dmg_path}#Ark-Browser-PreRelease.dmg"
+    # Prepare asset file with clean target filename
+    upload_dmg_path = dmg_path.parent / target_dmg_name
+    if upload_dmg_path.resolve() != dmg_path.resolve():
+        shutil.copyfile(dmg_path, upload_dmg_path)
+
     version_json_spec = str(VERSION_JSON_PATH)
 
     cmd = [
         gh_bin, 'release', 'create', version_tag,
-        asset_spec,
+        str(upload_dmg_path),
         version_json_spec,
         '--title', release_title,
         '--notes', notes_text,
