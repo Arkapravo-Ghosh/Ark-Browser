@@ -143,12 +143,23 @@ if [[ -d "$FRAMEWORK_DIR" ]]; then
   find "$FRAMEWORK_DIR" -type f -perm +111 -exec strip -x {} + 2>/dev/null || true
 fi
 
-echo "5. Ad-hoc codesigning staged bundle..."
+# Strip quarantine and extended attributes
+xattr -cr "$STAGE_DIR/$APP_NAME.app" 2>/dev/null || true
+
+SIGN_ID=$(security find-identity -v -p codesigning 2>/dev/null | grep -o 'Apple Development: [^"]*' | head -n 1 || true)
+if [[ -z "$SIGN_ID" ]]; then
+  SIGN_ID=$(security find-identity -v -p codesigning 2>/dev/null | grep -o '"[^"]*"' | head -n 1 | tr -d '"' || true)
+fi
+if [[ -z "$SIGN_ID" ]]; then
+  SIGN_ID="-"
+fi
+
+echo "5. Codesigning staged bundle with '$SIGN_ID'..."
 ENTITLEMENTS="$CHROMIUM_SRC/chrome/app/app-entitlements.plist"
 if [[ -f "$ENTITLEMENTS" ]]; then
-  codesign --force --deep --sign - --entitlements "$ENTITLEMENTS" "$STAGE_DIR/$APP_NAME.app"
+  codesign --force --deep --sign "$SIGN_ID" --entitlements "$ENTITLEMENTS" "$STAGE_DIR/$APP_NAME.app"
 else
-  codesign --force --deep --sign - "$STAGE_DIR/$APP_NAME.app"
+  codesign --force --deep --sign "$SIGN_ID" "$STAGE_DIR/$APP_NAME.app"
 fi
 
 echo "6. Creating /Applications shortcut..."
