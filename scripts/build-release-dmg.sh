@@ -178,12 +178,19 @@ hdiutil convert \
   -ov "$HYBRID_DMG" \
   -o "$DMG_PATH"
 
+echo "9. Generating compressed application archive (Ark-Browser-mac-arm64.zip)..."
+ZIP_PATH="$DIST_DIR/Ark-Browser-mac-arm64.zip"
+rm -f "$ZIP_PATH"
+ditto -c -k --keepParent "$STAGE_DIR/$APP_NAME.app" "$ZIP_PATH"
+
 echo ""
 echo "=================================================="
-echo "       Release DMG Created Successfully!          "
+echo "   Release Artifacts Created Successfully!        "
 echo "=================================================="
 echo "DMG File:     $DMG_PATH"
 echo "DMG Size:     $(du -sh "$DMG_PATH" | cut -f1)"
+echo "ZIP File:     $ZIP_PATH"
+echo "ZIP Size:     $(du -sh "$ZIP_PATH" | cut -f1)"
 echo "App Size:     $(du -sh "$STAGE_DIR/$APP_NAME.app" | cut -f1)"
 echo ""
 echo "Mount and test with:"

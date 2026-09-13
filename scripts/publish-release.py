@@ -15,6 +15,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 VERSION_JSON_PATH = ROOT / 'release/version.json'
 DEFAULT_DMG = ROOT / 'dist/Ark-Browser-Release.dmg'
+DEFAULT_ZIP = ROOT / 'dist/Ark-Browser-mac-arm64.zip'
 REPO_SLUG = 'Arkapravo-Ghosh/Ark-Browser'
 
 
@@ -92,12 +93,28 @@ def main():
         print("Run with --build or compile first using ./scripts/build-release-dmg.sh --build", file=sys.stderr)
         sys.exit(1)
 
-    # 2. Compute size and SHA-256 hash
-    print(f"\n2. Analyzing artifact: {dmg_path.name}...")
-    file_size = os.path.getsize(dmg_path)
-    sha256_hash = compute_sha256(dmg_path)
-    print(f"   Size:   {file_size:,} bytes ({file_size / (1024 * 1024):.1f} MB)")
-    print(f"   SHA256: {sha256_hash}")
+    # 2. Analyze artifacts
+    print(f"\n2. Analyzing artifacts...")
+    zip_path = DEFAULT_ZIP.resolve()
+    if not zip_path.exists():
+        app_bundle = ROOT / 'chromium/src/out/ArkRelease/Ark Browser.app'
+        if app_bundle.exists():
+            print("   Packaging Ark-Browser-mac-arm64.zip via ditto...")
+            zip_path.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(['/usr/bin/ditto', '-c', '-k', '--keepParent', str(app_bundle), str(zip_path)], check=True)
+
+    dmg_file_size = os.path.getsize(dmg_path)
+    dmg_sha256 = compute_sha256(dmg_path)
+    print(f"   DMG:  {dmg_path.name} ({dmg_file_size:,} bytes, {dmg_file_size / (1024 * 1024):.1f} MB)")
+    print(f"         SHA256: {dmg_sha256}")
+
+    target_zip_name = 'Ark-Browser-mac-arm64.zip'
+    has_zip = zip_path.exists()
+    if has_zip:
+        zip_file_size = os.path.getsize(zip_path)
+        zip_sha256 = compute_sha256(zip_path)
+        print(f"   ZIP:  {zip_path.name} ({zip_file_size:,} bytes, {zip_file_size / (1024 * 1024):.1f} MB)")
+        print(f"         SHA256: {zip_sha256}")
 
     # 3. Update release/version.json
     print("\n3. Updating release/version.json...")
@@ -111,17 +128,23 @@ def main():
     manifest['release_notes_url'] = f"https://github.com/{REPO_SLUG}/releases/tag/{version_tag}"
 
     target_dmg_name = 'Ark-Browser-PreRelease.dmg' if args.prerelease else 'Ark-Browser-Release.dmg'
-    asset_download_url = f"https://github.com/{REPO_SLUG}/releases/download/{version_tag}/{target_dmg_name}"
 
     if 'platforms' not in manifest:
         manifest['platforms'] = {}
 
-    # Update macOS target (strictly arm64 Apple Silicon)
-    manifest['platforms']['mac_arm64'] = {
-        'url': asset_download_url,
-        'sha256': sha256_hash,
-        'size': file_size
-    }
+    # Target mac_arm64: prioritize ZIP for smooth in-browser extraction
+    if has_zip:
+        manifest['platforms']['mac_arm64'] = {
+            'url': f"https://github.com/{REPO_SLUG}/releases/download/{version_tag}/{target_zip_name}",
+            'sha256': zip_sha256,
+            'size': zip_file_size
+        }
+    else:
+        manifest['platforms']['mac_arm64'] = {
+            'url': f"https://github.com/{REPO_SLUG}/releases/download/{version_tag}/{target_dmg_name}",
+            'sha256': dmg_sha256,
+            'size': dmg_file_size
+        }
 
     # Ensure Windows entries exist gracefully
     if 'win_x64' not in manifest['platforms']:
@@ -152,6 +175,8 @@ def main():
         print(f"  https://github.com/{REPO_SLUG}/releases/new?tag={version_tag}")
         print(f"Upload assets:")
         print(f"  - {target_dmg_name}")
+        if has_zip:
+            print(f"  - {target_zip_name}")
         print(f"  - {VERSION_JSON_PATH}")
         return
 
@@ -161,12 +186,14 @@ def main():
     if upload_dmg_path.resolve() != dmg_path.resolve():
         shutil.copyfile(dmg_path, upload_dmg_path)
 
-    version_json_spec = str(VERSION_JSON_PATH)
+    upload_files = [str(upload_dmg_path)]
+    if has_zip:
+        upload_files.append(str(zip_path))
+    upload_files.append(str(VERSION_JSON_PATH))
 
     cmd = [
         gh_bin, 'release', 'create', version_tag,
-        str(upload_dmg_path),
-        version_json_spec,
+        *upload_files,
         '--title', release_title,
         '--notes', notes_text,
     ]
@@ -182,7 +209,7 @@ def main():
         else:
             if "already exists" in res.stderr:
                 print(f"   Release tag {version_tag} already exists. Uploading assets to existing release...")
-                upload_cmd = [gh_bin, 'release', 'upload', version_tag, asset_spec, version_json_spec, '--clobber']
+                upload_cmd = [gh_bin, 'release', 'upload', version_tag, *upload_files, '--clobber']
                 subprocess.run(upload_cmd, cwd=ROOT, check=True)
                 print(f"   Uploaded assets to {version_tag} successfully!")
             else:
