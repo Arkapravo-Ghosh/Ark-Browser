@@ -70,8 +70,10 @@ def main():
                         help='Skip uploading to GitHub; only build and update release/version.json')
     parser.add_argument('--draft', action='store_true',
                         help='Create the GitHub release as a draft')
-    parser.add_argument('--prerelease', action='store_true', default=True,
-                        help='Mark release as pre-release (default: True)')
+    parser.add_argument('--prerelease', action='store_true', default=False,
+                        help='Mark release as pre-release (default: False)')
+    parser.add_argument('--latest', action='store_true', default=True,
+                        help='Mark release as latest (default: True)')
     args = parser.parse_args()
 
     version_tag = args.version.strip()
@@ -127,7 +129,7 @@ def main():
     manifest['prerelease'] = bool(args.prerelease)
     manifest['release_notes_url'] = f"https://github.com/{REPO_SLUG}/releases/tag/{version_tag}"
 
-    target_dmg_name = 'Ark-Browser-PreRelease.dmg' if args.prerelease else 'Ark-Browser-Release.dmg'
+    target_dmg_name = 'Ark-Browser-PreRelease.dmg'
 
     if 'platforms' not in manifest:
         manifest['platforms'] = {}
@@ -201,6 +203,8 @@ def main():
         cmd.append('--draft')
     if args.prerelease:
         cmd.append('--prerelease')
+    elif args.latest:
+        cmd.append('--latest')
 
     try:
         res = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)

@@ -71,9 +71,11 @@ Once installed, future updates are delivered directly inside the browser at **`a
 - **Apple Development Code Signing**: Stable code signature ensuring persistent macOS Keychain authorization across updates.
 
 ### Pending / Upcoming Capabilities (Roadmap)
-- **Cloud Model Connectors**: Bring-your-own-key support for OpenAI, Anthropic Claude, Amazon Bedrock, Together AI, and custom OpenAI-compatible endpoints.
-- **Local On-Device Inference**: Pinned `llama.cpp` integration in an isolated utility process for running local GGUF models offline.
-- **Hugging Face Model Manager**: Hub catalogue search, GGUF metadata validation, resumable chunked downloads, and local model management.
+- **Local On-Device Inference**: Bundled, pinned `llama.cpp` integration in an isolated utility process for running local GGUF models with Metal on macOS Apple Silicon; hard resource admission favors slower safe execution or rejection over instability.
+- **Model Manager**: Separate Local and Cloud tabs with a search bar on each, friendly Hugging Face catalogue/download flow, and model-wise Edit/preset/expert settings.
+- **Local AI Data Root**: Ark AI configuration, SQLite databases, model files, and artifacts under `$HOME/.arkbrowser` (future Windows: `%USERPROFILE%\.arkbrowser`); secrets remain in the OS credential vault.
+- **Cloud Model Connectors**: Secure bring-your-own-credential support for OpenAI, Anthropic, Amazon Bedrock, Azure OpenAI/Foundry, Together AI, Hugging Face Inference Providers, Cloudflare Workers AI, and custom OpenAI-compatible endpoints.
+- **Built-in Browser MCP Tools**: First-party new/existing-tab navigation, bounded page inspection and route discovery, viewport/region/full-page screenshots, and scoped cursor click/fill interaction.
 - **Page Context Engine**: One-click attachment of the active tab DOM (readability extracted) or user-selected text into chat prompts.
 - **Full Chat Interface**: Multi-turn conversations, code syntax highlighting, streaming cancellation, conversation naming/deletion, and local SQLite persistence.
 - **Cross-Platform Distribution**: Automated build and packaging pipelines for Windows (`.exe`/`.msi`) and Linux (`.deb`/`.tar.gz`).
@@ -175,7 +177,7 @@ Publish a new version bump and upload release assets to GitHub Releases:
 python3 scripts/publish-release.py -v 155.0.8049.0-alpha.0.0.9 --build
 ```
 
-For comprehensive engineering specifications, process models, and the pending AI implementation roadmap, see the [docs/](docs/) directory.
+For comprehensive engineering specifications and the pending AI implementation roadmap, see [docs/](docs/). The detailed local-runtime, model-management, chat/context, MCP, agent, and multimodal design begins at [docs/ai-engine/](docs/ai-engine/).
 
 ---
 
