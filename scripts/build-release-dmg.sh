@@ -109,6 +109,13 @@ if [[ ! -d "$APP_BUNDLE" ]]; then
   exit 1
 fi
 
+# A release with the local-model UI must include its self-contained llama.cpp
+# runtime. Bundle it before staging so both the DMG and ZIP contain the same
+# Apple Silicon / Metal inference dependencies.
+echo ""
+echo "2. Bundling llama.cpp runtime into the release app..."
+"$SCRIPT_DIR/bundle-llama-runtime.sh" --build-dir "$BUILD_DIR"
+
 # Verify this is a non-component release build
 if [[ -n $(ls "$BUILD_DIR"/*.dylib 2>/dev/null) ]]; then
   echo "Warning: Loose .dylib files detected in $BUILD_DIR."

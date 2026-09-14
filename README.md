@@ -167,17 +167,19 @@ Build the optimized, signed release DMG and ZIP archives (~160 MB compressed, ~1
 ```zsh
 ./scripts/build-release-dmg.sh --build
 ```
-This configures `out/ArkRelease` with `is_debug = false`, `is_component_build = false`, and `symbol_level = 0`, then signs with the local Apple Development certificate.
+This configures `out/ArkRelease` with `is_debug = false`, `is_component_build = false`, and `symbol_level = 0`, bundles the local `llama.cpp`/Metal runtime, then signs with the local Apple Development certificate.
 
 #### 7. Publishing Releases
 
 Publish a new version bump and upload release assets to GitHub Releases:
 
 ```zsh
-python3 scripts/publish-release.py -v 155.0.8049.0-alpha.0.0.9 --build
+python3 scripts/publish-release.py -v <next-version> --build
 ```
 
 For comprehensive engineering specifications and the pending AI implementation roadmap, see [docs/](docs/). The detailed local-runtime, model-management, chat/context, MCP, agent, and multimodal design begins at [docs/ai-engine/](docs/ai-engine/).
+
+The developer bootstrap model manager is available at `scripts/ark-model-manager.py`. It can search Hugging Face, resolve immutable revisions, resume downloads, verify SHA-256, and install into `$HOME/.arkbrowser`; see [the local model download guide](docs/11-local-model-download-guide.md).
 
 ---
 
