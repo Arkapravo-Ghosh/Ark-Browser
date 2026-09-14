@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
 # Copyright 2026 Arkapravo Ghosh
-# Bundle llama.cpp runtime (llama-server, libraries, and Metal backend) inside Ark Browser.app
+# Bundle the legacy llama.cpp CLI runtime, libraries, and Metal backend inside Ark Browser.app.
 
 set -euo pipefail
 
@@ -63,11 +63,10 @@ if [[ ! -d "$LLAMA_PREFIX" ]]; then
   exit 1
 fi
 
-echo "1. Copying llama-server and llama-cli binaries..."
-rm -f "$MACOS_DIR/llama-server" "$MACOS_DIR/llama-cli"
-cp -f "$LLAMA_PREFIX/bin/llama-server" "$MACOS_DIR/llama-server"
+echo "1. Copying llama-cli binary..."
+rm -f "$MACOS_DIR/llama-cli"
 cp -f "$LLAMA_PREFIX/bin/llama-cli" "$MACOS_DIR/llama-cli"
-chmod 755 "$MACOS_DIR/llama-server" "$MACOS_DIR/llama-cli"
+chmod 755 "$MACOS_DIR/llama-cli"
 
 echo "2. Copying llama and ggml libraries..."
 rm -f "$LLAMA_LIB_DIR"/*.dylib(N) "$LLAMA_LIB_DIR/libexec"/*.so(N)
@@ -80,12 +79,10 @@ echo "3. Copying Metal and Apple Silicon CPU backends..."
 cp -fP "$GGML_PREFIX/libexec"/*.so "$LLAMA_LIB_DIR/libexec/" 2>/dev/null || true
 
 echo "4. Updating rpaths for self-contained execution..."
-# Add @executable_path/../Frameworks/llama to llama-server rpath if not already present
-install_name_tool -add_rpath "@executable_path/../Frameworks/llama" "$MACOS_DIR/llama-server" 2>/dev/null || true
 install_name_tool -add_rpath "@executable_path/../Frameworks/llama" "$MACOS_DIR/llama-cli" 2>/dev/null || true
 
 # Change Homebrew linkage to the libraries copied into the app bundle.
-for binary in "$MACOS_DIR/llama-server" "$MACOS_DIR/llama-cli"; do
+for binary in "$MACOS_DIR/llama-cli"; do
   install_name_tool -change "$GGML_PREFIX/lib/libggml.0.dylib" "@rpath/libggml.0.dylib" "$binary" 2>/dev/null || true
   install_name_tool -change "$GGML_PREFIX/lib/libggml-base.0.dylib" "@rpath/libggml-base.0.dylib" "$binary" 2>/dev/null || true
   install_name_tool -change "$OPENSSL_PREFIX/lib/libssl.3.dylib" "@rpath/libssl.3.dylib" "$binary" 2>/dev/null || true
@@ -93,7 +90,6 @@ for binary in "$MACOS_DIR/llama-server" "$MACOS_DIR/llama-cli"; do
 done
 
 echo "5. Ad-hoc signing bundled binaries..."
-codesign --force --sign - "$MACOS_DIR/llama-server"
 codesign --force --sign - "$MACOS_DIR/llama-cli"
 for lib in "$LLAMA_LIB_DIR"/*.dylib; do
   codesign --force --sign - "$lib" 2>/dev/null || true

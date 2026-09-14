@@ -207,6 +207,8 @@ async def run(args):
                     'missing-smoke-conversation', 'hello', null);
             })()""")
             verified_manifests = []
+            prepared_mlx_installed = False
+            prepared_gemma_model_id = None
             for manifest_path in (Path.home() / '.arkbrowser' / 'models' / 'installed').glob('**/manifest.json'):
                 try:
                     manifest = json.loads(manifest_path.read_text())
@@ -214,11 +216,53 @@ async def run(args):
                     continue
                 if manifest.get('runtime_compatibility') == 'verified_compatible':
                     verified_manifests.append(manifest_path)
+                if (manifest.get('model_id') ==
+                        'local:mlx:llama-3.2-11b-vision-instruct' and
+                        manifest.get('runtime_backend') == 'mlx-vlm' and
+                        manifest.get('runtime_compatibility') ==
+                        'supported_by_bundled_mlx_vlm_0_5_0'):
+                    prepared_mlx_installed = True
+                if (manifest.get('repository') ==
+                        'google/gemma-4-12B-it-qat-q4_0-gguf' and
+                        manifest.get('runtime_backend') == 'llama.cpp' and
+                        manifest.get('runtime_compatibility') ==
+                        'supported_by_bundled_llama_cpp_0_4_0'):
+                    prepared_gemma_model_id = manifest.get('model_id')
             inference_ok = bool(inference_result and inference_result.get('response'))
             if verified_manifests:
                 inference_ok = inference_ok and inference_result.get('success') is True
             check(inference_ok,
                   'Verified local inference generates successfully; missing models fail safely', results)
+            if prepared_mlx_installed:
+                response = inference_result.get('response', '')
+                check(inference_result.get('success') is True and
+                      bool(response.strip()) and
+                      'GenerationResult(' not in response,
+                      'Bundled MLX inference returns assistant text through Mojo', results)
+            if prepared_gemma_model_id:
+                gemma_result = await cdp.evaluate(page, f"""(async () => {{
+                    const {{PageHandler}} = await import('./ark.mojom-webui.js');
+                    const remote = PageHandler.getRemote();
+                    const {{state}} = await remote.createConversation(
+                        {json.dumps(prepared_gemma_model_id)});
+                    try {{
+                        return await remote.sendChatPrompt(
+                            state.id,
+                            'Reply with exactly: ARK_GEMMA_MOJO_OK', null);
+                    }} finally {{
+                        await remote.deleteConversation(state.id);
+                    }}
+                }})()""")
+                gemma_response = gemma_result.get('response', '')
+                llama_ui_markers = (
+                    'Loading model', 'available commands:', 'build      :',
+                    'Exiting...', '\u2584\u2584 \u2584\u2584')
+                check(gemma_result.get('success') is True and
+                      'ARK_GEMMA_MOJO_OK' in gemma_response and
+                      not any(marker in gemma_response
+                              for marker in llama_ui_markers),
+                      'Bundled Gemma llama.cpp inference returns only assistant text through Mojo',
+                      results)
             check(await cdp.evaluate(page, "[...document.querySelectorAll('a[href]')].every(a => !a.getAttribute('href').startsWith('chrome://'))"),
                   'All product internal links use ark://', results)
             await cdp.evaluate(page, "document.querySelector('[data-prompt]').click()")

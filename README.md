@@ -69,10 +69,10 @@ Once installed, future updates are delivered directly inside the browser at **`a
 - **Ark Branding & Viridian Design System**: Custom application icons, "About Ark Browser" UI, and styling.
 - **In-Browser Update Infrastructure**: Background updater checking `release/version.json`, downloading `.zip` archives, verifying SHA-256 digests, stripping quarantine, and performing atomic bundle replacement with restart capability.
 - **Apple Development Code Signing**: Stable code signature ensuring persistent macOS Keychain authorization across updates.
+- **Local On-Device Inference**: Request-scoped MLX-VLM for MLX safetensors/VLM models and legacy `llama.cpp` for GGUF models, both accelerated by Metal and isolated from the browser process. Each bridge returns assistant completion text only; runtime diagnostic banners are never persisted as chat messages.
+- **Local Model Manager**: In-browser Hugging Face search, verified downloads, manifest-backed model selection, and clean model deletion under `$HOME/.arkbrowser`.
 
 ### Pending / Upcoming Capabilities (Roadmap)
-- **Local On-Device Inference**: Bundled, pinned `llama.cpp` integration in an isolated utility process for running local GGUF models with Metal on macOS Apple Silicon; hard resource admission favors slower safe execution or rejection over instability.
-- **Model Manager**: Separate Local and Cloud tabs with a search bar on each, friendly Hugging Face catalogue/download flow, and model-wise Edit/preset/expert settings.
 - **Local AI Data Root**: Ark AI configuration, SQLite databases, model files, and artifacts under `$HOME/.arkbrowser` (future Windows: `%USERPROFILE%\.arkbrowser`); secrets remain in the OS credential vault.
 - **Cloud Model Connectors**: Secure bring-your-own-credential support for OpenAI, Anthropic, Amazon Bedrock, Azure OpenAI/Foundry, Together AI, Hugging Face Inference Providers, Cloudflare Workers AI, and custom OpenAI-compatible endpoints.
 - **Built-in Browser MCP Tools**: First-party new/existing-tab navigation, bounded page inspection and route discovery, viewport/region/full-page screenshots, and scoped cursor click/fill interaction.
@@ -100,11 +100,14 @@ Ark-Browser/
 ├── scripts/
 │   ├── build-dmg.sh           Development component DMG packaging script
 │   ├── build-release-dmg.sh   Production monolithic DMG & ZIP packaging script
+│   ├── bundle-mlx-runtime.sh  Stages the private MLX-VLM runtime
+│   ├── ark_mlx_runner.py      One-request MLX-VLM inference entry point
 │   ├── env.sh                 zsh environment configuration helper
 │   ├── generate-ark-icons.py  Generates application icons from Ark SVGs
 │   └── publish-release.py     Automated version bump and GitHub Release publisher
 └── tests/
-    └── smoke_ui.py            Compiled-browser CDP smoke tests
+    ├── smoke_ui.py            Compiled-browser CDP and local-runtime smoke tests
+    └── test_ark_mlx_runner.py MLX completion-contract unit tests
 ```
 
 ---
@@ -167,7 +170,7 @@ Build the optimized, signed release DMG and ZIP archives (~160 MB compressed, ~1
 ```zsh
 ./scripts/build-release-dmg.sh --build
 ```
-This configures `out/ArkRelease` with `is_debug = false`, `is_component_build = false`, and `symbol_level = 0`, bundles the local `llama.cpp`/Metal runtime, then signs with the local Apple Development certificate.
+This configures `out/ArkRelease` with `is_debug = false`, `is_component_build = false`, and `symbol_level = 0`, bundles the MLX-VLM and legacy `llama.cpp` Metal runtimes, then signs with the local Apple Development certificate.
 
 #### 7. Publishing Releases
 

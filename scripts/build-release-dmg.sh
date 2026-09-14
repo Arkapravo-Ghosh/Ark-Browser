@@ -109,11 +109,14 @@ if [[ ! -d "$APP_BUNDLE" ]]; then
   exit 1
 fi
 
-# A release with the local-model UI must include its self-contained llama.cpp
-# runtime. Bundle it before staging so both the DMG and ZIP contain the same
-# Apple Silicon / Metal inference dependencies.
+# A release with the local-model UI includes MLX-VLM as its preferred Apple
+# Silicon runtime and llama.cpp as the legacy GGUF backend. Bundle both before
+# staging so the DMG and ZIP contain identical inference dependencies.
 echo ""
-echo "2. Bundling llama.cpp runtime into the release app..."
+echo "2. Bundling preferred MLX-VLM runtime into the release app..."
+"$SCRIPT_DIR/bundle-mlx-runtime.sh" --build-dir "$BUILD_DIR"
+
+echo "2b. Bundling legacy llama.cpp runtime into the release app..."
 "$SCRIPT_DIR/bundle-llama-runtime.sh" --build-dir "$BUILD_DIR"
 
 # Verify this is a non-component release build

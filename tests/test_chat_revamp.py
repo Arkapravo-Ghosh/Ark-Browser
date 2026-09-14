@@ -139,6 +139,29 @@ async def main():
         assert not has_rail_note, "Your Space rail-note still exists"
         print("PASS 3: 'Your Space' section removed from sidebar")
 
+        # The desktop navigation rail collapses to icons, gives the workspace
+        # the reclaimed width, and preserves the preference across reloads.
+        await cdp.evaluate(page, "document.querySelector('#rail-toggle').click()")
+        await asyncio.sleep(.25)
+        collapsed = await cdp.evaluate(page, """(() => ({
+            active: document.documentElement.classList.contains('rail-collapsed'),
+            railWidth: document.querySelector('.rail').getBoundingClientRect().width,
+            workspaceLeft: document.querySelector('.workspace').getBoundingClientRect().left,
+            historyHidden: getComputedStyle(document.querySelector('.rail-history')).display === 'none',
+            expanded: document.querySelector('#rail-toggle').getAttribute('aria-expanded')
+        }))()""")
+        print(f"Collapsed rail checks: {collapsed}")
+        assert collapsed['active'] and collapsed['railWidth'] <= 74
+        assert collapsed['workspaceLeft'] <= 74 and collapsed['historyHidden']
+        assert collapsed['expanded'] == 'false'
+        await cdp.call('Page.reload', session=page)
+        await cdp.wait_for(page, "document.documentElement.classList.contains('rail-collapsed')")
+        await cdp.evaluate(page, "document.querySelector('#rail-toggle').click()")
+        await asyncio.sleep(.25)
+        expanded = await cdp.evaluate(page, "document.querySelector('.rail').getBoundingClientRect().width")
+        assert expanded >= 178, f"Expanded rail width unexpected: {expanded}"
+        print("PASS 3b: Navigation rail collapses, reclaims space, persists, and expands")
+
         # Test Textarea ChatGPT dynamics (initial height ~38px)
         initial_height = await cdp.evaluate(page, "document.querySelector('#draft').clientHeight")
         print(f"Textarea initial height: {initial_height}px")
@@ -210,6 +233,34 @@ async def main():
         assert eval_result['hasList'], "List not rendered"
         assert eval_result['hasBlockquote'], "Blockquote not rendered"
         print(f"PASS 7: Markdown rendered with syntax highlighting (keyword: '{eval_result['keywordText']}'), copy button, lists, blockquotes with ZERO TrustedHTML errors")
+
+        # User messages use the exact same safe Markdown renderer and support
+        # language aliases beyond the original JavaScript/Python set.
+        user_markdown_checks = await cdp.evaluate(page, r"""(() => {
+            const { renderMessageBubble } = window.__arkTest;
+            const shortUserBubble = renderMessageBubble('user', 'Hi');
+            const userBubble = renderMessageBubble('user',
+                '```csharp\npublic record User(string Name);\n```\n\n```java\npublic final class Ark {}\n```\n\n```sql\nSELECT * FROM models;\n```');
+            const blocks = userBubble.querySelectorAll('.md-code-block');
+            return {
+                blockCount: blocks.length,
+                hasKeywords: userBubble.querySelectorAll('.tok-keyword').length >= 3,
+                csharpLabel: blocks[0]?.querySelector('.md-code-lang')?.textContent,
+                javaLabel: blocks[1]?.querySelector('.md-code-lang')?.textContent,
+                sqlLabel: blocks[2]?.querySelector('.md-code-lang')?.textContent,
+                hasCopy: userBubble.querySelectorAll('.md-copy-btn').length === 3,
+                bubbleWidth: userBubble.closest('.message-user')?.getBoundingClientRect().width,
+                contentWidth: userBubble.getBoundingClientRect().width,
+                shortBubbleWidth: shortUserBubble.getBoundingClientRect().width,
+            };
+        })()""")
+        assert user_markdown_checks['blockCount'] == 3, "User Markdown did not render all fenced blocks"
+        assert user_markdown_checks['hasKeywords'], "C#, Java, or SQL keyword was not highlighted"
+        assert (user_markdown_checks['csharpLabel'], user_markdown_checks['javaLabel'], user_markdown_checks['sqlLabel']) == ('csharp', 'java', 'sql'), "Language labels changed unexpectedly"
+        assert user_markdown_checks['hasCopy'], "User code blocks are missing copy controls"
+        assert user_markdown_checks['bubbleWidth'] <= user_markdown_checks['contentWidth'] + 1, "User message wrapper is wider than its content"
+        assert user_markdown_checks['shortBubbleWidth'] < 80, "Short user bubble still has a forced minimum width"
+        print("PASS 7b: User messages render Markdown, broad syntax highlighting, and content-sized bubbles")
 
         # Test assistant bubble pointed corner and automatic width adjustment
         bubble_checks = await cdp.evaluate(page, """(() => {
@@ -324,6 +375,48 @@ async def main():
         assert title_checks['assistantMsgModel'], "assistant message missing modelName"
         print(f"PASS 10: First-message title auto-generated ('{title_checks['firstConvTitle']}'), preserved across subsequent messages, and modelName present in message schema")
 
+        # Exercise both local backends in one conversation. The conversation
+        # ID must remain stable while the runtime process changes.
+        switch_checks = await cdp.evaluate(page, """(async () => {
+            const mlx = 'local:mlx:llama-3.2-11b-vision-instruct';
+            const gguf = 'local:huggingface:google/gemma-4-12B-it-qat-q4_0-gguf@29d097773436b69ff9feafd636ab4cf873786537:Q4_0';
+            const selectModel = async (model) => {
+                localStorage.setItem('ark_selected_model', model);
+                const select = document.querySelector('#composer-model-select');
+                select.value = model;
+                select.dispatchEvent(new Event('change', {bubbles: true}));
+                await new Promise(resolve => setTimeout(resolve, 100));
+                document.querySelector('#draft').value = `backend switch ${model}`;
+                await window.__arkTest.sendMessage();
+            };
+            await selectModel(gguf);
+            const afterGemma = window.__arkTest.getCurrentMessages().length;
+            await selectModel(mlx);
+            const afterLlama = window.__arkTest.getCurrentMessages().length;
+            await selectModel(gguf);
+            const messages = window.__arkTest.getCurrentMessages();
+            const ids = new Set(messages.map(message => message.conversationId));
+            return {
+                afterGemma,
+                afterLlama,
+                finalCount: messages.length,
+                conversationCount: ids.size,
+                backends: messages.filter(message => message.role === 'assistant')
+                    .slice(-3).map(message => message.modelName)
+            };
+        })()""")
+        print(f"Backend switch checks: {switch_checks}")
+        assert switch_checks['afterGemma'] > title_checks['msgCount']
+        assert switch_checks['afterLlama'] > switch_checks['afterGemma']
+        assert switch_checks['finalCount'] > switch_checks['afterLlama']
+        assert switch_checks['conversationCount'] == 1
+        assert switch_checks['backends'] == [
+            'local:huggingface:google/gemma-4-12B-it-qat-q4_0-gguf@29d097773436b69ff9feafd636ab4cf873786537:Q4_0',
+            'local:mlx:llama-3.2-11b-vision-instruct',
+            'local:huggingface:google/gemma-4-12B-it-qat-q4_0-gguf@29d097773436b69ff9feafd636ab4cf873786537:Q4_0'
+        ]
+        print("PASS 10b: Gemma -> Llama -> Gemma completed in one conversation")
+
         # Wait for CSS animations to complete
         await asyncio.sleep(.5)
 
@@ -371,11 +464,26 @@ async def main():
         # Check Models page
         await cdp.evaluate(page, "location.hash = 'models'")
         await cdp.wait_for(page, "!document.querySelector('#models-page').hidden")
+        model_manager_check = await cdp.evaluate(page, """(async () => {
+            const {PageHandler} = await import('./ark.mojom-webui.js');
+            const {models} = await PageHandler.getRemote().getInstalledLocalModels();
+            return {
+                apiCount: models.length,
+                cardCount: document.querySelectorAll('.installed-model-card').length,
+                hasArkNotice: !!document.querySelector('#ark-notice-dialog'),
+                hasArkDeleteDialog: !!document.querySelector('#model-delete-dialog'),
+                nativeAlertReferences: document.documentElement.innerHTML.includes('chrome://ark-chat says')
+            };
+        })()""")
+        assert model_manager_check['apiCount'] == model_manager_check['cardCount']
+        assert model_manager_check['hasArkNotice'] and model_manager_check['hasArkDeleteDialog']
+        assert not model_manager_check['nativeAlertReferences']
+        print("PASS 15: Installed-model API, cards, and Ark-native dialogs are wired")
         models_screenshot_path = artifacts / 'models_revamp_verified.png'
         await cdp.screenshot(page, models_screenshot_path, 1440, 900)
-        print(f"PASS 15: Models manager page verified and captured at {models_screenshot_path}")
+        print(f"PASS 16: Models manager page verified and captured at {models_screenshot_path}")
 
-    print("\nALL 15 VERIFICATION CHECKS PASSED PERFECTLY!")
+    print("\nALL 16 VERIFICATION CHECKS PASSED PERFECTLY!")
 
 if __name__ == '__main__':
     asyncio.run(main())
