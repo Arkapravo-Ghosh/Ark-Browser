@@ -33,7 +33,7 @@ def main() -> int:
         processor, config, prompt, num_images=len(images or [])
     )
     result = generate(
-        model, processor, formatted, images, max_tokens=512, verbose=False
+        model, processor, formatted, images, max_tokens=1024, verbose=False
     )
     print(completion_text(result), flush=True)
     return 0

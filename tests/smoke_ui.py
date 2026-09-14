@@ -233,6 +233,20 @@ async def run(args):
                 inference_ok = inference_ok and inference_result.get('success') is True
             check(inference_ok,
                   'Verified local inference generates successfully; missing models fail safely', results)
+            check(await cdp.evaluate(page, "!document.querySelector('select.model-select') && !!document.querySelector('[role=combobox][aria-controls=\"composer-model-menu\"]')"),
+                  'Model picker uses Ark custom menu controls instead of an OS select', results)
+            menu_interaction = await cdp.evaluate(page, """(() => {
+                const trigger = document.querySelector('#composer-model-trigger');
+                const menu = document.querySelector('#composer-model-menu');
+                if (!trigger || !menu) return false;
+                trigger.click();
+                const opened = !menu.hidden && trigger.getAttribute('aria-expanded') === 'true' &&
+                    !!menu.querySelector('[role=option]');
+                menu.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+                return opened && menu.hidden && trigger.getAttribute('aria-expanded') === 'false';
+            })()""")
+            check(menu_interaction,
+                  'Custom model menu opens and closes with accessible trigger semantics', results)
             if prepared_mlx_installed:
                 response = inference_result.get('response', '')
                 check(inference_result.get('success') is True and

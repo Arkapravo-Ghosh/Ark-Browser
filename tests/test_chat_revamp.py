@@ -329,11 +329,12 @@ async def main():
 
         # Test generateChatTitle and First-Message Title Auto-generation
         title_checks = await cdp.evaluate(page, """(async () => {
-            const { generateChatTitle, sendMessage, getConversationsList, getCurrentMessages } = window.__arkTest;
+            const { generateChatTitle, synthesizeLocalText, sendMessage, getConversationsList, getCurrentMessages } = window.__arkTest;
 
             // 1. Test unit function generateChatTitle
             const shortTitle = generateChatTitle('What is photosynthesis?');
             const longTitle = generateChatTitle('Please explain quantum entanglement in detail and how it relates to quantum computing applications');
+            const armstrong = synthesizeLocalText('Write a python code to see if an integer is an Armstrong number from user input');
 
             // 2. Clear current messages to simulate brand new conversation
             const draft = document.querySelector('#draft');
@@ -358,6 +359,8 @@ async def main():
             return {
                 shortTitle,
                 longTitle,
+                armstrongHasPythonFence: armstrong.includes('```python'),
+                armstrongHasPredicate: armstrong.includes('def is_armstrong'),
                 firstConvTitle,
                 secondConvTitle,
                 titleRemainedSame: firstConvTitle === secondConvTitle,
@@ -369,6 +372,7 @@ async def main():
         print(f"Title & Schema checks: {title_checks}")
         assert title_checks['shortTitle'] == 'What is photosynthesis?', f"Short title unexpected: {title_checks['shortTitle']}"
         assert len(title_checks['longTitle']) <= 41 and title_checks['longTitle'].endswith('...'), f"Long title unexpected: {title_checks['longTitle']}"
+        assert title_checks['armstrongHasPythonFence'] and title_checks['armstrongHasPredicate'], "Armstrong coding response lost its Python implementation"
         assert 'nuclear fusion' in title_checks['firstConvTitle'].lower(), f"First conv title unexpected: {title_checks['firstConvTitle']}"
         assert title_checks['titleRemainedSame'], f"Second message modified the title! {title_checks['firstConvTitle']} vs {title_checks['secondConvTitle']}"
         assert title_checks['userMsgModel'], "user message missing modelName"
@@ -382,9 +386,8 @@ async def main():
             const gguf = 'local:huggingface:google/gemma-4-12B-it-qat-q4_0-gguf@29d097773436b69ff9feafd636ab4cf873786537:Q4_0';
             const selectModel = async (model) => {
                 localStorage.setItem('ark_selected_model', model);
-                const select = document.querySelector('#composer-model-select');
-                select.value = model;
-                select.dispatchEvent(new Event('change', {bubbles: true}));
+                const menu = document.querySelector('#composer-model-menu');
+                menu.querySelector('[data-model-value="' + model + '"]').click();
                 await new Promise(resolve => setTimeout(resolve, 100));
                 document.querySelector('#draft').value = `backend switch ${model}`;
                 await window.__arkTest.sendMessage();
@@ -482,6 +485,82 @@ async def main():
         models_screenshot_path = artifacts / 'models_revamp_verified.png'
         await cdp.screenshot(page, models_screenshot_path, 1440, 900)
         print(f"PASS 16: Models manager page verified and captured at {models_screenshot_path}")
+
+        rail_state = await cdp.evaluate(page, """(async () => {
+            const {PageHandler} = await import('./ark.mojom-webui.js');
+            const handler = PageHandler.getRemote();
+            const before = (await handler.getConversations()).conversations.length;
+            const newChat = document.querySelector('#new-chat');
+            newChat.click();
+            newChat.click();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const after = (await handler.getConversations()).conversations.length;
+            return {
+                unchanged: before === after,
+                hasChatRailLink: !!document.querySelector('nav a[data-route="chat"]'),
+                searchLabel: document.querySelector('nav a[data-route="home"] span')?.textContent,
+                emptyWorkspace: document.querySelector('#chat-messages').children.length === 0 &&
+                    !document.querySelector('#chat-empty').hidden
+            };
+        })()""")
+        assert rail_state['unchanged'] and not rail_state['hasChatRailLink']
+        assert rail_state['searchLabel'] == 'Search' and rail_state['emptyWorkspace']
+        print("PASS 17: New chat stays transient, duplicate Chat rail action is removed, and web navigation is labeled Search")
+
+        route_state = await cdp.evaluate(page, """(async () => {
+            const clickRoute = async (selector, hash) => {
+                document.querySelector(selector).click();
+                const route = hash.slice(1);
+                for (let i = 0; i < 30 && (location.hash !== hash ||
+                    !document.querySelector(`[data-route="${route}"][aria-current="page"]`)); i++) {
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                }
+            };
+            await clickRoute('nav a[data-route="home"]', '#home');
+            const search = {
+                route: location.hash,
+                activeRoute: document.querySelector('[data-route][aria-current="page"]')?.dataset.route,
+                activeChats: document.querySelectorAll('.conversation-item.active').length
+            };
+            await clickRoute('nav a[data-route="models"]', '#models');
+            return {
+                search,
+                models: {
+                    route: location.hash,
+                    activeRoute: document.querySelector('[data-route][aria-current="page"]')?.dataset.route,
+                    activeChats: document.querySelectorAll('.conversation-item.active').length
+                }
+            };
+        })()""")
+        assert rail_state['searchLabel'] == 'Search'
+        assert route_state['search']['activeRoute'] == 'home'
+        assert route_state['models']['activeRoute'] == 'models'
+        assert route_state['search']['activeChats'] == 0 and route_state['models']['activeChats'] == 0
+        print("PASS 18: Search and Models own the active rail state after leaving a chat")
+
+        enter_result = await cdp.evaluate(page, """(async () => {
+            document.querySelector('#new-chat').click();
+            const draft = document.querySelector('#draft');
+            draft.value = 'Explain the causes of tides';
+            draft.dispatchEvent(new Event('input', {bubbles: true}));
+            draft.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
+            for (let i = 0; i < 600; i++) {
+                const messages = window.__arkTest.getCurrentMessages();
+                const title = document.querySelector('.conversation-item-title')?.textContent || '';
+                if (messages.length >= 2 && title && title !== 'New conversation') break;
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            const messages = window.__arkTest.getCurrentMessages();
+            return {
+                userMessages: messages.filter(m => m.role === 'user').length,
+                assistantMessages: messages.filter(m => m.role === 'assistant').length,
+                visibleUserBubbles: document.querySelectorAll('.message-user').length,
+                visibleAssistantBubbles: document.querySelectorAll('.message-assistant').length
+            };
+        })()""")
+        assert enter_result['userMessages'] == 1 and enter_result['assistantMessages'] == 1
+        assert enter_result['visibleUserBubbles'] == 1 and enter_result['visibleAssistantBubbles'] == 1
+        print("PASS 19: One Enter keypress sends exactly one user message and one assistant response")
 
     print("\nALL 16 VERIFICATION CHECKS PASSED PERFECTLY!")
 
