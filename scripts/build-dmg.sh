@@ -27,6 +27,14 @@ if [[ ! -d "$APP_BUNDLE" ]]; then
   exit 1
 fi
 
+# ArkDev is a runnable developer build too, so keep its local-model runtime
+# identical to release artifacts. The llama.cpp binary is built from the
+# pinned source submodule and bundled into the app before it is staged.
+echo "1. Building the pinned llama.cpp runtime..."
+"$SCRIPT_DIR/build-llama-runtime.sh"
+echo "1b. Bundling the local llama.cpp runtime into ArkDev..."
+"$SCRIPT_DIR/bundle-llama-runtime.sh" --build-dir "$BUILD_DIR"
+
 mkdir -p "$DIST_DIR"
 
 STAGE_DIR="$(mktemp -d -t ark_dmg_stage_XXXXXX)"
@@ -35,31 +43,31 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "1. Staging Ark Browser.app..."
+echo "2. Staging Ark Browser.app..."
 ditto "$APP_BUNDLE" "$STAGE_DIR/Ark Browser.app"
 
 if [[ -n $(ls "$BUILD_DIR"/*.dylib 2>/dev/null) ]]; then
-  echo "1b. Bundling runtime libraries for component build..."
+  echo "2b. Bundling runtime libraries for component build..."
   FRAMEWORKS_DIR="$STAGE_DIR/Ark Browser.app/Contents/Frameworks"
   mkdir -p "$FRAMEWORKS_DIR"
   cp -c "$BUILD_DIR"/*.dylib "$FRAMEWORKS_DIR/" 2>/dev/null || cp "$BUILD_DIR"/*.dylib "$FRAMEWORKS_DIR/"
-  echo "1c. Signing staged bundle with ad-hoc identity..."
+  echo "2c. Signing staged bundle with ad-hoc identity..."
   codesign --force --sign - --entitlements "$CHROMIUM_SRC/chrome/app/app-entitlements.plist" "$STAGE_DIR/Ark Browser.app"
 fi
 
-echo "2. Creating /Applications shortcut..."
+echo "3. Creating /Applications shortcut..."
 ln -s /Applications "$STAGE_DIR/Applications"
 
 ICON_SRC="$CHROMIUM_SRC/chrome/app/theme/chromium/mac/app.icns"
 if [[ -f "$ICON_SRC" ]]; then
-  echo "3. Applying volume icon..."
+  echo "4. Applying volume icon..."
   cp "$ICON_SRC" "$STAGE_DIR/.VolumeIcon.icns"
   if command -v SetFile >/dev/null 2>&1; then
     SetFile -a C "$STAGE_DIR" || true
   fi
 fi
 
-echo "4. Generating compressed disk image ($DMG_NAME)..."
+echo "5. Generating compressed disk image ($DMG_NAME)..."
 rm -f "$DMG_PATH"
 
 HYBRID_DMG="$(mktemp -t ark_hybrid_XXXXXX).dmg"

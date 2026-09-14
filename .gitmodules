@@ -5,3 +5,6 @@
 [submodule "depot_tools"]
 	path = depot_tools
 	url = https://chromium.googlesource.com/chromium/tools/depot_tools.git
+[submodule "third_party/llama.cpp"]
+	path = third_party/llama.cpp
+	url = https://github.com/ggml-org/llama.cpp.git
