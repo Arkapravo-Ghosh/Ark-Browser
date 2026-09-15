@@ -1,217 +1,151 @@
 # Ark Browser
 
-Ark Browser is an AI-powered desktop browser built directly on Chromium. It combines fast, standard-compliant browsing with an integrated, non-overlapping AI sidebar and workspace assistant, giving users complete ownership of their browsing data, API credentials, and choice of cloud or local models.
+Ark Browser is a Chromium-based desktop browser with a local-first AI assistant. It keeps ordinary browsing fast and familiar while making model-assisted work available beside the page. On Apple Silicon, local inference runs with Metal and the user chooses which installed model or cloud provider to use.
+
+The project is intended to grow into a browser-operation assistant: MCP servers and tools will provide bounded browser capabilities, agents will combine those tools into user-approved workflows, and vision models will help understand pages and screenshots. Those capabilities are being built behind explicit permissions and confirmation; Ark must not silently navigate, click, submit, or send data on a user's behalf.
 
 [![Latest Release](https://img.shields.io/github/v/release/Arkapravo-Ghosh/Ark-Browser?style=flat-square&color=blue)](https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/latest)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20(Apple%20Silicon)-brightgreen.svg)](https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/latest)
 
----
+## For users
 
-## Download & Installation
+### Download
 
-### Latest macOS Release (Apple Silicon / arm64)
+Ark currently ships for macOS on Apple Silicon (arm64):
 
-[![Download for macOS](https://img.shields.io/badge/Download-macOS%20(Apple%20Silicon%20DMG)-2ea44f?logo=apple&style=for-the-badge)](https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/latest/download/Ark-Browser-PreRelease.dmg)
+- [Download the latest DMG](https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/latest/download/Ark-Browser-PreRelease.dmg)
+- [Download the application ZIP](https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/latest/download/Ark-Browser-mac-arm64.zip)
+- [View releases and notes](https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/latest)
 
-- 💿 **[Download Latest DMG (.dmg)](https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/latest/download/Ark-Browser-PreRelease.dmg)** — Official macOS installer disk image.
-- 📦 **[Download Application Archive (.zip)](https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/latest/download/Ark-Browser-mac-arm64.zip)** — Compressed application bundle.
-- 📋 **[All Releases & Changelog](https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/latest)** — Full release notes, checksums, and assets.
+Open the DMG, drag `Ark Browser.app` to `/Applications`, and launch it. This is an independently distributed build, so macOS may require **Open Anyway** in **System Settings > Privacy & Security** on first launch. The equivalent terminal command is:
 
----
+```zsh
+xattr -cr "/Applications/Ark Browser.app"
+```
 
-### macOS First-Launch & Security Instructions
+Ark checks `release/version.json` from the project's GitHub repository for updates. It downloads the arm64 ZIP, verifies its SHA-256 digest, removes download quarantine, and replaces the application bundle only after verification. Local conversations and model files remain on the machine; cloud providers are opt-in.
 
-When downloading Ark Browser using a web browser and dragging `Ark Browser.app` to `/Applications`, macOS Gatekeeper may intercept the first launch with:
+### What is included today
 
-> **"Ark Browser.app" Not Opened**<br>
-> *Apple could not verify "Ark Browser.app" is free of malware that may harm your Mac or compromise your privacy.*
+- Chromium browsing with Ark's `ark://` built-in pages.
+- AI chat in the side panel and full chat page, with local conversation persistence.
+- Local GGUF inference through the pinned, bundled `llama.cpp` runtime.
+- Local MLX/VLM inference through a relocatable bundled Python runtime.
+- A model manager for Hugging Face downloads, selection, verification, and deletion.
+- Optional cloud-model connectors where the user supplies credentials.
 
-#### Why this happens
-Browsers tag all downloaded files with a `com.apple.quarantine` extended attribute. Because Ark Browser is an independent open-source project signed with developer credentials rather than an Apple-notarized commercial certificate from Apple's paid program, macOS Gatekeeper blocks quarantined downloads until authorized by the user.
+## Technology and boundaries
 
-#### How to Open (One-Time Setup)
+Ark is split into layers so the browser remains usable if an AI runtime fails:
 
-Choose either method to open the browser for the first time:
+- **Chromium fork (`chromium/src`)**: browser, tabs, WebUI, sandboxing, networking, and macOS packaging.
+- **Ark browser services (C++)**: profile-scoped AI orchestration, conversation persistence, model management, updater, and typed Mojo IPC.
+- **Ark WebUI (TypeScript)**: `ark://` pages and chat/model interfaces. It talks to C++ through Mojo rather than starting a separate desktop shell.
+- **Local inference**: `llama.cpp` handles GGUF models; MLX-VLM handles MLX safetensors/VLM models. Both are bundled in production and run outside the browser's main process with Metal acceleration.
+- **Storage**: conversations are stored in SQLite under `$HOME/.arkbrowser`; credentials use Chromium's OS-protected credential facilities. Incognito data is transient.
+- **Release/update path**: a monolithic `ArkRelease` app is packaged as a DMG and ZIP; the ZIP and manifest power in-browser updates.
 
-- **Method A: macOS System Settings (GUI)**
-  1. Open **System Settings > Privacy & Security**.
-  2. Scroll down to the **Security** section.
-  3. Locate: `Ark Browser.app was blocked from use because it is not from an identified developer`.
-  4. Click **Open Anyway** and enter your macOS login password.
+The security goal is local-first operation, explicit context attachment, isolated inference, and user confirmation before future tools or agents perform consequential browser actions. MCP, tools, agents, and vision are product direction as the interfaces mature, not a promise that every workflow is already enabled.
 
-- **Method B: Terminal (Instant)**
-  Open Terminal and run the following command to remove the quarantine flag attached by your browser:
-  ```bash
-  xattr -cr "/Applications/Ark Browser.app"
-  ```
-  You can now launch Ark Browser directly from `/Applications` or Spotlight without warnings.
-
-#### Keychain Authorization ("Ark Browser Safe Storage")
-On the very first launch, macOS may prompt:
-> *"Ark Browser wants to use your confidential information stored in 'Ark Browser Safe Storage' in your keychain."*
-
-Enter your Mac login password and click **Always Allow**. This binds the safe storage encryption key to the official Apple Development signature (`G2UDNDU45G`) so Keychain grants access across all future launches and updates without prompting again.
-
-#### Seamless Automatic Updates
-Once installed, future updates are delivered directly inside the browser at **`ark://settings/help`**. The internal updater automatically removes quarantine attributes in the background before swapping the app bundle, so in-browser updates relaunch immediately without Gatekeeper or Keychain prompts.
-
----
-
-## Key Features & Current Status
-
-### Implemented Features (Current Release)
-- **Non-Overlapping AI Sidebar**: Toggling the sidebar smoothly animates and squeezes the browsing content area instead of overlaying it, ensuring complete visibility of active web pages.
-- **Ergonomic Toolbar Toggle**: Positioned at the extreme right of the main toolbar, directly adjacent to the side panel.
-- **New Tab Experience (`ark://newtab`)**: Clean workspace page with quick Web/Ask AI mode switching, auto-expanding draft composer, and dark/light theme synchronization.
-- **Native `ark://` Scheme**: Full internal URL routing for `ark://newtab/`, `ark://settings/`, `ark://credits/`, `ark://history/`, `ark://bookmarks/`, and `ark://downloads/`.
-- **Privacy-Focused Settings (`ark://settings`)**: Local profile settings with Google sync dependencies, sign-in interception bubbles, and remote telemetry hooks stripped out.
-- **Ark Branding & Viridian Design System**: Custom application icons, "About Ark Browser" UI, and styling.
-- **In-Browser Update Infrastructure**: Background updater checking `release/version.json`, downloading `.zip` archives, verifying SHA-256 digests, stripping quarantine, and performing atomic bundle replacement with restart capability.
-- **Apple Development Code Signing**: Stable code signature ensuring persistent macOS Keychain authorization across updates.
-- **Local On-Device Inference**: Request-scoped MLX-VLM for MLX safetensors/VLM models and legacy `llama.cpp` for GGUF models, both accelerated by Metal and isolated from the browser process. Each bridge returns assistant completion text only; runtime diagnostic banners are never persisted as chat messages.
-- **Local Model Manager**: In-browser Hugging Face search, verified downloads, manifest-backed model selection, and clean model deletion under `$HOME/.arkbrowser`.
-
-### Pending / Upcoming Capabilities (Roadmap)
-- **Local AI Data Root**: Ark AI configuration, SQLite databases, model files, and artifacts under `$HOME/.arkbrowser` (future Windows: `%USERPROFILE%\.arkbrowser`); secrets remain in the OS credential vault.
-- **Cloud Model Connectors**: Secure bring-your-own-credential support for OpenAI, Anthropic, Amazon Bedrock, Azure OpenAI/Foundry, Together AI, Hugging Face Inference Providers, Cloudflare Workers AI, and custom OpenAI-compatible endpoints.
-- **Built-in Browser MCP Tools**: First-party new/existing-tab navigation, bounded page inspection and route discovery, viewport/region/full-page screenshots, and scoped cursor click/fill interaction.
-- **Page Context Engine**: One-click attachment of the active tab DOM (readability extracted) or user-selected text into chat prompts.
-- **Full Chat Interface**: Multi-turn conversations, code syntax highlighting, streaming cancellation, conversation naming/deletion, and local SQLite persistence.
-- **Cross-Platform Distribution**: Automated build and packaging pipelines for Windows (`.exe`/`.msi`) and Linux (`.deb`/`.tar.gz`).
-
----
-
-## Developer Documentation
-
-### Repository & Submodule Layout
+## Repository layout
 
 ```text
 Ark-Browser/
-├── chromium/
-│   ├── .gclient               Local Chromium checkout configuration
-│   └── src/                   Ark Chromium fork submodule (branch: ark-browser)
-├── config/
-│   └── dev.gn                 Development GN build configuration
-├── depot_tools/               Pinned Chromium development tools submodule
-├── docs/                      Architecture, specs, and implementation guides
-├── release/
-│   └── version.json           Live update manifest consumed by ark://settings/help
-├── scripts/
-│   ├── build-dmg.sh           Development component DMG packaging script
-│   ├── build-release-dmg.sh   Production monolithic DMG & ZIP packaging script
-│   ├── bundle-mlx-runtime.sh  Stages the private MLX-VLM runtime
-│   ├── ark_mlx_runner.py      One-request MLX-VLM inference entry point
-│   ├── env.sh                 zsh environment configuration helper
-│   ├── generate-ark-icons.py  Generates application icons from Ark SVGs
-│   └── publish-release.py     Automated version bump and GitHub Release publisher
-└── tests/
-    ├── smoke_ui.py            Compiled-browser CDP and local-runtime smoke tests
-    └── test_ark_mlx_runner.py MLX completion-contract unit tests
+├── chromium/src/             Ark Chromium fork (branch: ark-browser)
+├── depot_tools/              Chromium build tools
+├── release/version.json      Public update manifest
+├── scripts/                  Build, runtime, icon, and release automation
+├── tests/                    CDP smoke tests and MLX runner tests
+└── ark.icon/                 macOS Icon Composer source package
 ```
 
----
+## Development on macOS
 
-### Building on macOS
-
-Building Chromium requires an Apple Silicon Mac (M1/M2/M3/M4) with at least 16 GB RAM and 100 GB+ free disk space.
-
-#### 1. Environment Setup
-
-Clone the repository with submodules and source environment helpers:
+Use an Apple Silicon Mac with Xcode Command Line Tools, Python 3, Git, `uv`, and a working Chromium checkout. Plan for at least 16 GB RAM and 120 GB of free disk space.
 
 ```zsh
 git clone --recurse-submodules https://github.com/Arkapravo-Ghosh/Ark-Browser.git
 cd Ark-Browser
 source scripts/env.sh
-```
-
-#### 2. Sync Dependencies
-
-Sync gclient dependencies and run Chromium hooks:
-
-```zsh
 cd "$CHROMIUM_ROOT"
 gclient sync
 gclient runhooks
-```
-
-#### 3. Compile Development Build
-
-Compile the `chrome` target using autoninja:
-
-```zsh
 cd "$CHROMIUM_SRC"
 autoninja -C out/ArkDev chrome
-```
-
-#### 4. Launch Development Build
-
-Launch with an isolated local development user profile:
-
-```zsh
-open "$CHROMIUM_SRC/out/ArkDev/Ark Browser.app" --args \
+open "out/ArkDev/Ark Browser.app" --args \
   --user-data-dir="$ARK_ROOT/dev-profile"
 ```
 
-#### 5. Run Automated CDP Smoke Tests
+`out/ArkDev` is a component build for fast iteration. If you want to test local models, stage both runtimes into the app first:
 
-Execute the automated Chrome DevTools Protocol smoke test suite:
+```zsh
+cd "$ARK_ROOT"
+./scripts/bundle-mlx-runtime.sh --build-dir ArkDev
+./scripts/build-llama-runtime.sh
+./scripts/bundle-llama-runtime.sh --build-dir ArkDev
+```
+
+The development DMG builder performs that staging automatically:
+
+```zsh
+./scripts/build-dmg.sh
+open dist/Ark-Browser.dmg
+```
+
+Run the browser smoke suite against a compiled build:
 
 ```zsh
 python3 tests/smoke_ui.py
 ```
-Test results and screenshots are saved to `test-results/`.
 
-#### 6. Monolithic Production Packaging
-
-Build the optimized, signed release DMG and ZIP archives (~160 MB compressed, ~1 GB installed):
+For C++ or resource changes, regenerate and rebuild with GN/autoninja from `chromium/src`:
 
 ```zsh
+gn gen out/ArkDev
+autoninja -C out/ArkDev chrome
+```
+
+## Scripts
+
+Run scripts from the repository root after `source scripts/env.sh`:
+
+| Script | Purpose |
+| --- | --- |
+| `env.sh` | Exports `ARK_ROOT`, Chromium paths, and `depot_tools` on `PATH`. |
+| `build-llama-runtime.sh` | Configures the pinned `third_party/llama.cpp` submodule with Metal and builds `llama-cli`. |
+| `bundle-llama-runtime.sh` (`--build-dir ArkDev` or `ArkRelease`) | Copies the locally built `llama-cli` into an app bundle. |
+| `bundle-mlx-runtime.sh` (`--build-dir ArkDev` or `ArkRelease`) | Builds a relocatable arm64 Python environment and installs the pinned MLX-VLM runtime in the app. |
+| `build-dmg.sh` | Packages an ArkDev component build as `dist/Ark-Browser.dmg`, bundling both local runtimes. |
+| `build-release-dmg.sh [--build]` | Builds (when requested), signs, and packages the monolithic release app as DMG and ZIP. |
+| `sync-mac-icon.sh` | Copies `ark.icon/` into Chromium and regenerates legacy macOS icon assets. |
+| `generate-ark-icons.py` | Runs the Ark icon generation pipeline, including macOS icon synchronization. |
+| `publish-release.py` | Computes release metadata, updates the manifest, and creates/uploads a GitHub Release through `gh`. |
+
+The local model manager is `scripts/ark-model-manager.py`; it resolves immutable Hugging Face revisions, resumes downloads, verifies hashes, and installs models under `$HOME/.arkbrowser`.
+
+## Production packaging and release
+
+Build the production app from the repository root:
+
+```zsh
+source scripts/env.sh
 ./scripts/build-release-dmg.sh --build
 ```
-This configures `out/ArkRelease` with `is_debug = false`, `is_component_build = false`, and `symbol_level = 0`, bundles the MLX-VLM and legacy `llama.cpp` Metal runtimes, then signs with the local Apple Development certificate.
 
-#### 7. Publishing Releases
+This uses `out/ArkRelease` (`is_component_build = false`, `is_debug = false`, stripped symbols), bundles the locally compiled `llama.cpp` and MLX-VLM runtimes, signs nested macOS code, and writes release artifacts under `dist/`.
 
-Publish a new version bump and upload release assets to GitHub Releases:
+To publish a version after updating the Ark version constants in `chromium/src`:
 
 ```zsh
-python3 scripts/publish-release.py -v <next-version> --build
+VERSION="<next-version>"
+python3 scripts/publish-release.py -v "$VERSION" --build
 ```
 
-For comprehensive engineering specifications and the pending AI implementation roadmap, see [docs/](docs/). The detailed local-runtime, model-management, chat/context, MCP, agent, and multimodal design begins at [docs/ai-engine/](docs/ai-engine/).
+The publisher builds when requested, computes exact sizes and SHA-256 digests, updates `release/version.json`, and uses the GitHub CLI to upload the DMG, ZIP, and manifest. Review the generated artifacts and manifest before pushing the version change. A GitHub CLI login with release permissions is required.
 
-The developer bootstrap model manager is available at `scripts/ark-model-manager.py`. It can search Hugging Face, resolve immutable revisions, resume downloads, verify SHA-256, and install into `$HOME/.arkbrowser`; see [the local model download guide](docs/11-local-model-download-guide.md).
-
----
-
-## Source Repositories
-
-- **Main Repository**: [Arkapravo-Ghosh/Ark-Browser](https://github.com/Arkapravo-Ghosh/Ark-Browser)
-- **Chromium Fork**: [Arkapravo-Ghosh/Ark-Browser-Chromium](https://github.com/Arkapravo-Ghosh/Ark-Browser-Chromium) (branch `ark-browser`)
-
----
+When `ark.icon/` changes, run `./scripts/sync-mac-icon.sh` before the build. When the pinned `third_party/llama.cpp` source changes, run `./scripts/build-llama-runtime.sh`; the bundlers then use that local build rather than Homebrew's installation.
 
 ## License
 
-Ark Browser is free and open-source software licensed under the **GNU Affero General Public License Version 3 (AGPLv3)**.
-
-```text
-Copyright (C) 2026 Arkapravo Ghosh.
-
-Ark Browser is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Ark Browser is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-```
-
-See the full [LICENSE](LICENSE) file for details.
-
-### Third-Party Licenses & Chromium Attribution
-Ark Browser is built upon the [Chromium](https://www.chromium.org/) open-source project. Chromium and bundled third-party libraries remain subject to their respective open-source licenses (including BSD-3-Clause, MIT, Apache-2.0, and others) as detailed in `about:credits` or `ark://credits/`.
+Ark Browser is free and open-source software under the [GNU Affero General Public License v3](LICENSE). Chromium and other bundled projects retain their own licenses and attributions, available from `ark://credits/`.
