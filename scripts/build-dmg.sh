@@ -27,12 +27,13 @@ if [[ ! -d "$APP_BUNDLE" ]]; then
   exit 1
 fi
 
-# ArkDev is a runnable developer build too, so keep its local-model runtime
-# identical to release artifacts. The llama.cpp binary is built from the
-# pinned source submodule and bundled into the app before it is staged.
-echo "1. Building the pinned llama.cpp runtime..."
+# ArkDev is a runnable developer build too, so keep both local-model
+# runtimes identical to release artifacts before staging the app.
+echo "1. Bundling the preferred MLX-VLM runtime into ArkDev..."
+"$SCRIPT_DIR/bundle-mlx-runtime.sh" --build-dir "$BUILD_DIR"
+echo "1b. Building the pinned llama.cpp runtime..."
 "$SCRIPT_DIR/build-llama-runtime.sh"
-echo "1b. Bundling the local llama.cpp runtime into ArkDev..."
+echo "1c. Bundling the local llama.cpp runtime into ArkDev..."
 "$SCRIPT_DIR/bundle-llama-runtime.sh" --build-dir "$BUILD_DIR"
 
 mkdir -p "$DIST_DIR"

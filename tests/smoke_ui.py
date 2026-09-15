@@ -343,9 +343,14 @@ async def run(args):
             ai_query = 'I need to buy Nike shoes, show me a few'
             await cdp.evaluate(second, "localStorage.setItem('ark_gemini_api_key', 'smoke-test-key'); localStorage.setItem('ark_selected_model', 'cloud:gemini-2.5-flash'); location.reload()")
             await cdp.wait_for(second, ready)
+            ask_ai_conversations_before = await cdp.evaluate(
+                second, "(async () => (await import('./ark.mojom-webui.js')).PageHandler.getRemote().getConversations()).then(result => result.conversations.length)")
             await cdp.evaluate(second, f"location.hash = 'home'; document.querySelector('#ai-mode').click(); document.querySelector('#search-input').value = {json.dumps(ai_query)}; document.querySelector('#search-form').requestSubmit()")
             await cdp.wait_for(second, "location.hash === '#chat' && document.querySelector('#chat-messages').textContent.includes('Nike shoes')")
-            check(True, 'New-tab Ask AI mode opens chat with its query', results)
+            ask_ai_conversations_after = await cdp.evaluate(
+                second, "(async () => (await import('./ark.mojom-webui.js')).PageHandler.getRemote().getConversations()).then(result => result.conversations.length)")
+            check(ask_ai_conversations_after == ask_ai_conversations_before + 1,
+                  'New-tab Ask AI starts a new persisted chat for its first query', results)
             context = (await cdp.call('Target.createBrowserContext'))['browserContextId']
             private = await cdp.page(context)
             await cdp.navigate(private, 'ark://newtab/')

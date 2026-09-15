@@ -2,7 +2,6 @@
 # Copyright 2026 Arkapravo Ghosh
 """Generate all application icon assets and brand logos from the Ark SVG source."""
 
-import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -11,6 +10,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / 'chromium/src'
 SVG_SOURCE = ROOT / 'chromium/src/chrome/browser/resources/ark/ark.svg'
+MAC_ICON_PACKAGE = ROOT / 'ark.icon'
 
 MAC_APPICON_SVG_CONTENT = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
@@ -20,13 +20,6 @@ MAC_APPICON_SVG_CONTENT = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 
   </defs>
   <rect x="100" y="100" width="824" height="824" rx="185" fill="#292f29" filter="url(#shadow)"/>
   <g transform="translate(100, 100) scale(12.875)">
-    <path d="M15 46 29 17h7l14 29h-9l-3-7H27l3-7h5l-3-8-10 22Z" fill="#f4f3eb"/>
-    <circle cx="48" cy="17" r="4" fill="#d7e59a"/>
-  </g>
-</svg>'''
-
-MAC_ICON_COMPOSER_FG = '''<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <g transform="scale(16)">
     <path d="M15 46 29 17h7l14 29h-9l-3-7H27l3-7h5l-3-8-10 22Z" fill="#f4f3eb"/>
     <circle cx="48" cy="17" r="4" fill="#d7e59a"/>
   </g>
@@ -86,33 +79,14 @@ def main():
     render_png(mac_appicon_svg, icon_iconset_dir / 'icon_256x256@2x.png', 512, 512)
     print("Updated Icon.iconset with 256 and 512 PNGs")
 
-    # 4. Update AppIcon.icon package for modern macOS 26+ layered Icon Composer
+    # 4. Install the authoritative Icon Composer package for macOS 26+.
     appicon_pkg = mac_theme_dir / 'AppIcon.icon'
-    appicon_assets = appicon_pkg / 'Assets'
+    if not (MAC_ICON_PACKAGE / 'icon.json').is_file() or not (MAC_ICON_PACKAGE / 'Assets').is_dir():
+        raise SystemExit(f'Missing Icon Composer package: {MAC_ICON_PACKAGE}')
     if appicon_pkg.exists():
         shutil.rmtree(appicon_pkg)
-    appicon_assets.mkdir(parents=True, exist_ok=True)
-    (appicon_assets / 'ark_fg.svg').write_text(MAC_ICON_COMPOSER_FG)
-
-    icon_json = {
-        "fill": {
-            "solid": "srgb:0.16078,0.18431,0.16078,1.00000"
-        },
-        "groups": [
-            {
-                "layers": [
-                    {
-                        "glass": False,
-                        "hidden": False,
-                        "image-name": "ark_fg.svg",
-                        "name": "ark_fg"
-                    }
-                ]
-            }
-        ]
-    }
-    (appicon_pkg / 'icon.json').write_text(json.dumps(icon_json, indent=2) + '\n')
-    print("Configured AppIcon.icon with ark_fg.svg and sRGB #292f29 background")
+    shutil.copytree(MAC_ICON_PACKAGE, appicon_pkg)
+    print(f"Installed Icon Composer package from {MAC_ICON_PACKAGE}")
 
     # 5. Run compile_car.py to compile Assets.car
     subprocess.run([
@@ -146,6 +120,9 @@ def main():
     webui_logo = SRC / 'ui/webui/resources/images/chrome_logo_dark.svg'
     shutil.copy(SVG_SOURCE, webui_logo)
     print("Updated Chromium product logos and WebUI logo to Ark SVG")
+
+    # Keep the Icon Composer artwork authoritative for every macOS icon format.
+    subprocess.run([str(ROOT / 'scripts/sync-mac-icon.sh')], cwd=ROOT, check=True)
 
     # Clean up temp iconset
     shutil.rmtree(temp_iconset, ignore_errors=True)
