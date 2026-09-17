@@ -329,12 +329,11 @@ async def main():
 
         # Test generateChatTitle and First-Message Title Auto-generation
         title_checks = await cdp.evaluate(page, """(async () => {
-            const { generateChatTitle, synthesizeLocalText, sendMessage, getConversationsList, getCurrentMessages } = window.__arkTest;
+            const { generateChatTitle, sendMessage, getConversationsList, getCurrentMessages } = window.__arkTest;
 
             // 1. Test unit function generateChatTitle
             const shortTitle = generateChatTitle('What is photosynthesis?');
             const longTitle = generateChatTitle('Please explain quantum entanglement in detail and how it relates to quantum computing applications');
-            const armstrong = synthesizeLocalText('Write a python code to see if an integer is an Armstrong number from user input');
 
             // 2. Clear current messages to simulate brand new conversation
             const draft = document.querySelector('#draft');
@@ -359,8 +358,6 @@ async def main():
             return {
                 shortTitle,
                 longTitle,
-                armstrongHasPythonFence: armstrong.includes('```python'),
-                armstrongHasPredicate: armstrong.includes('def is_armstrong'),
                 firstConvTitle,
                 secondConvTitle,
                 titleRemainedSame: firstConvTitle === secondConvTitle,
@@ -372,7 +369,6 @@ async def main():
         print(f"Title & Schema checks: {title_checks}")
         assert title_checks['shortTitle'] == 'What is photosynthesis?', f"Short title unexpected: {title_checks['shortTitle']}"
         assert len(title_checks['longTitle']) <= 41 and title_checks['longTitle'].endswith('...'), f"Long title unexpected: {title_checks['longTitle']}"
-        assert title_checks['armstrongHasPythonFence'] and title_checks['armstrongHasPredicate'], "Armstrong coding response lost its Python implementation"
         assert 'nuclear fusion' in title_checks['firstConvTitle'].lower(), f"First conv title unexpected: {title_checks['firstConvTitle']}"
         assert title_checks['titleRemainedSame'], f"Second message modified the title! {title_checks['firstConvTitle']} vs {title_checks['secondConvTitle']}"
         assert title_checks['userMsgModel'], "user message missing modelName"

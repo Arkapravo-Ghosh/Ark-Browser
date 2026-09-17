@@ -43,6 +43,7 @@ Ark is split into layers so the browser remains usable if an AI runtime fails:
 - **Ark browser services (C++)**: profile-scoped AI orchestration, conversation persistence, model management, updater, and typed Mojo IPC.
 - **Ark WebUI (TypeScript)**: `ark://` pages and chat/model interfaces. It talks to C++ through Mojo rather than starting a separate desktop shell.
 - **Local inference**: `llama.cpp` handles GGUF models; MLX-VLM handles MLX safetensors/VLM models. Both are bundled in production and run outside the browser's main process with Metal acceleration.
+- **Cloud inference**: the browser-owned Gemini adapter uses Chromium networking; the WebUI does not call provider endpoints or persist provider responses. The same service boundary is the extension point for later OpenAI-compatible endpoints such as LM Studio.
 - **Storage**: conversations are stored in SQLite under `$HOME/.arkbrowser`; credentials use Chromium's OS-protected credential facilities. Incognito data is transient.
 - **Release/update path**: a monolithic `ArkRelease` app is packaged as a DMG and ZIP; the ZIP and manifest power in-browser updates.
 

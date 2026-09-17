@@ -203,8 +203,15 @@ async def run(args):
                   'Sending is unavailable without a model', results)
             inference_result = await cdp.evaluate(page, """(async () => {
                 const {PageHandler} = await import('./ark.mojom-webui.js');
-                return await PageHandler.getRemote().sendChatPrompt(
-                    'missing-smoke-conversation', 'hello', null);
+                const remote = PageHandler.getRemote();
+                const {state} = await remote.createConversation(
+                    'local:mlx:llama-3.2-11b-vision-instruct');
+                try {
+                    return await remote.sendChatPrompt(
+                        state.id, 'hello', null, null);
+                } finally {
+                    await remote.deleteConversation(state.id);
+                }
             })()""")
             verified_manifests = []
             prepared_mlx_installed = False
@@ -262,7 +269,8 @@ async def run(args):
                     try {{
                         return await remote.sendChatPrompt(
                             state.id,
-                            'Reply with exactly: ARK_GEMMA_MOJO_OK', null);
+                            'Reply with exactly: ARK_GEMMA_MOJO_OK', null,
+                            null);
                     }} finally {{
                         await remote.deleteConversation(state.id);
                     }}
@@ -344,11 +352,11 @@ async def run(args):
             await cdp.evaluate(second, "localStorage.setItem('ark_gemini_api_key', 'smoke-test-key'); localStorage.setItem('ark_selected_model', 'cloud:gemini-2.5-flash'); location.reload()")
             await cdp.wait_for(second, ready)
             ask_ai_conversations_before = await cdp.evaluate(
-                second, "(async () => (await import('./ark.mojom-webui.js')).PageHandler.getRemote().getConversations()).then(result => result.conversations.length)")
+                second, "(async () => (await (await import('./ark.mojom-webui.js')).PageHandler.getRemote().getConversations()).conversations.length)()")
             await cdp.evaluate(second, f"location.hash = 'home'; document.querySelector('#ai-mode').click(); document.querySelector('#search-input').value = {json.dumps(ai_query)}; document.querySelector('#search-form').requestSubmit()")
             await cdp.wait_for(second, "location.hash === '#chat' && document.querySelector('#chat-messages').textContent.includes('Nike shoes')")
             ask_ai_conversations_after = await cdp.evaluate(
-                second, "(async () => (await import('./ark.mojom-webui.js')).PageHandler.getRemote().getConversations()).then(result => result.conversations.length)")
+                second, "(async () => (await (await import('./ark.mojom-webui.js')).PageHandler.getRemote().getConversations()).conversations.length)()")
             check(ask_ai_conversations_after == ask_ai_conversations_before + 1,
                   'New-tab Ask AI starts a new persisted chat for its first query', results)
             context = (await cdp.call('Target.createBrowserContext'))['browserContextId']
@@ -482,17 +490,27 @@ async def run(args):
             # Appearance page check: "Ark Browser Panels" is present and "Chrome Panels" is absent
             await cdp.navigate(second, 'ark://settings/appearance')
             await cdp.wait_for(second, "!!document.querySelector('settings-ui')?.shadowRoot?.querySelector('settings-main')?.shadowRoot?.querySelector('settings-appearance-page-index')?.shadowRoot?.querySelector('settings-appearance-page')")
-            appearance_has_ark_panels = await cdp.evaluate(second, """(() => {
-                const appPage = document.querySelector('settings-ui')?.shadowRoot
+            appearance_labels = await cdp.evaluate(second, """(() => {
+                const appElement = document.querySelector('settings-ui')?.shadowRoot
                     ?.querySelector('settings-main')?.shadowRoot
                     ?.querySelector('settings-appearance-page-index')?.shadowRoot
-                    ?.querySelector('settings-appearance-page')?.shadowRoot;
-                if (!appPage) return false;
+                    ?.querySelector('settings-appearance-page');
+                const appPage = appElement?.shadowRoot;
+                if (!appElement || !appPage) return null;
                 const text = appPage.textContent || '';
-                return text.includes('Ark Browser Panels') && !text.includes('Chrome Panels');
+                const themeRow = appPage.querySelector('#openTheme');
+                return {
+                    panels: text.includes('Ark Browser Panels') &&
+                        !text.includes('Chrome Panels'),
+                    colors: appElement.themeSublabel_ === 'Ark Browser Colors' &&
+                        themeRow?.getAttribute('sub-label') ===
+                            'Ark Browser Colors'
+                };
             })()""")
-            check(appearance_has_ark_panels,
+            check(appearance_labels and appearance_labels.get('panels'),
                   'Appearance settings renames Chrome Panels to Ark Browser Panels', results)
+            check(appearance_labels and appearance_labels.get('colors'),
+                  'Appearance settings renames Chrome Colors to Ark Browser Colors', results)
 
             # Search engines page check:
             # 1. "part of Ark Browser" instead of "part of Chrome"
