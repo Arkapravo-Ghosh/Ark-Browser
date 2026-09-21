@@ -1,16 +1,16 @@
 {
   "name": "Ark Browser",
-  "version": "155.0.8049.0-alpha.0.0.16",
-  "release_tag": "155.0.8049.0-alpha.0.0.16",
+  "version": "155.0.8049.0-alpha.0.0.17",
+  "release_tag": "155.0.8049.0-alpha.0.0.17",
   "channel": "stable",
-  "release_date": "2026-09-17T04:44:03Z",
+  "release_date": "2026-09-21T11:15:12Z",
   "prerelease": false,
-  "release_notes_url": "https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/tag/155.0.8049.0-alpha.0.0.16",
+  "release_notes_url": "https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/tag/155.0.8049.0-alpha.0.0.17",
   "platforms": {
     "mac_arm64": {
-      "url": "https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/download/155.0.8049.0-alpha.0.0.16/Ark-Browser-mac-arm64.zip",
-      "sha256": "cb60f7ebaedccbd7e0925f63c48aea10175d0c0e9b1e10c013e46d46eb1e2c95",
-      "size": 446571059
+      "url": "https://github.com/Arkapravo-Ghosh/Ark-Browser/releases/download/155.0.8049.0-alpha.0.0.17/Ark-Browser-mac-arm64.zip",
+      "sha256": "cc12578a6ec43446d3c7f098b6b0b617dc5a76f7ee5edfd7011079e173484538",
+      "size": 491389985
     },
     "win_x64": {
       "url": "",

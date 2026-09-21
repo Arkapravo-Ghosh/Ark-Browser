@@ -547,16 +547,37 @@ async def main():
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
             const messages = window.__arkTest.getCurrentMessages();
+            const visible = Array.from(
+                document.querySelectorAll('#chat-messages > .message'));
+            const tail = visible.slice(-2);
+            const assistant = tail.find(node =>
+                node.classList.contains('message-assistant'));
+            const pipeline = assistant?.querySelector('.agent-pipeline');
+            const bubble = assistant?.querySelector('.message-bubble');
             return {
                 userMessages: messages.filter(m => m.role === 'user').length,
                 assistantMessages: messages.filter(m => m.role === 'assistant').length,
                 visibleUserBubbles: document.querySelectorAll('.message-user').length,
-                visibleAssistantBubbles: document.querySelectorAll('.message-assistant').length
+                visibleAssistantBubbles: document.querySelectorAll('.message-assistant').length,
+                tailRoles: tail.map(node => node.classList.contains('message-user') ?
+                    'user' : node.classList.contains('message-assistant') ?
+                    'assistant' : 'other'),
+                generatingPlaceholders: document.querySelectorAll(
+                    '.message-bubble[data-generation-conversation-id]').length,
+                pipelineOwnedByAssistant: Boolean(pipeline &&
+                    pipeline.closest('.message-assistant') === assistant),
+                pipelineBeforeAnswer: Boolean(pipeline && bubble &&
+                    (pipeline.compareDocumentPosition(bubble) &
+                        Node.DOCUMENT_POSITION_FOLLOWING))
             };
         })()""")
         assert enter_result['userMessages'] == 1 and enter_result['assistantMessages'] == 1
         assert enter_result['visibleUserBubbles'] == 1 and enter_result['visibleAssistantBubbles'] == 1
-        print("PASS 19: One Enter keypress sends exactly one user message and one assistant response")
+        assert enter_result['tailRoles'] == ['user', 'assistant'], enter_result
+        assert enter_result['generatingPlaceholders'] == 0, enter_result
+        assert enter_result['pipelineOwnedByAssistant'] and enter_result['pipelineBeforeAnswer'], enter_result
+        await cdp.screenshot(page, artifacts / '20_message_pipeline_order.png')
+        print("PASS 19: User message, owned agent pipeline, and assistant response remain in strict turn order")
 
     print("\nALL 16 VERIFICATION CHECKS PASSED PERFECTLY!")
 

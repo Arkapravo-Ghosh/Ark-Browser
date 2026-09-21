@@ -119,6 +119,9 @@ echo "2. Bundling preferred MLX-VLM runtime into the release app..."
 echo "2b. Bundling legacy llama.cpp runtime into the release app..."
 "$SCRIPT_DIR/bundle-llama-runtime.sh" --build-dir "$BUILD_DIR"
 
+echo "2c. Bundling official MCP runtime (Node.js + MCP servers) into the release app..."
+"$SCRIPT_DIR/bundle-mcp-servers.sh" --build-dir "$BUILD_DIR"
+
 # Verify this is a non-component release build
 if [[ -n $(ls "$BUILD_DIR"/*.dylib 2>/dev/null) ]]; then
   echo "Warning: Loose .dylib files detected in $BUILD_DIR."

@@ -37,6 +37,28 @@ class ArkMlxRunnerTest(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, "without text"):
             ark_mlx_runner.completion_text(SimpleNamespace(tokens=[1, 2, 3]))
 
+    def test_moves_capability_control_block_to_system_message(self) -> None:
+        messages = ark_mlx_runner.parse_prompt_to_messages(
+            "What is the weather?\n\n# Capability decision\n"
+            "Return only a routing decision."
+        )
+
+        self.assertEqual(messages[-1], {
+            "role": "user",
+            "content": "What is the weather?",
+        })
+        self.assertIn("Capability decision", messages[0]["content"])
+
+    def test_image_prompt_omits_no_image_guard(self) -> None:
+        messages = ark_mlx_runner.parse_prompt_to_messages(
+            "Describe the attached image.", has_images=True
+        )
+
+        self.assertEqual(messages, [{
+            "role": "user",
+            "content": "Describe the attached image.",
+        }])
+
 
 if __name__ == "__main__":
     unittest.main()

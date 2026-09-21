@@ -201,6 +201,43 @@ async def run(args):
             await cdp.screenshot(page, artifacts / 'new-tab-light.png', 1440, 1000)
             check(await cdp.evaluate(page, "document.querySelector('.send-button').disabled"),
                   'Sending is unavailable without a model', results)
+            await cdp.navigate(page, 'ark://ark-chat/#chat')
+            await cdp.wait_for(page, "!document.querySelector('#chat-page').hidden")
+            composer_idle_layout = await cdp.evaluate(page, """(() => {
+                const meter = document.querySelector('#context-meter-wrap');
+                const action = document.querySelector('#composer-action-btn');
+                const picker = document.querySelector('#composer-model-picker');
+                const start = document.querySelector('.composer-toolbar-start');
+                const end = document.querySelector('.composer-toolbar-end');
+                return Boolean(meter?.hidden && start && end &&
+                    action?.parentElement?.parentElement === start && picker?.parentElement === start &&
+                    action.parentElement.compareDocumentPosition(picker) & Node.DOCUMENT_POSITION_FOLLOWING &&
+                    [...end.children].map(node => node.id || node.className).join('|') ===
+                        'composer-queue-btn|composer-steer-btn|composer-stop-btn|send-button');
+            })()""")
+            check(composer_idle_layout,
+                  'Untouched chat hides context usage and keeps add/model controls together', results)
+            composer_active_layout = await cdp.evaluate(page, """(() => {
+                const toolbar = document.querySelector('.composer-toolbar');
+                const start = document.querySelector('.composer-toolbar-start');
+                const end = document.querySelector('.composer-toolbar-end');
+                const controls = ['composer-queue-btn', 'composer-steer-btn', 'composer-stop-btn']
+                    .map(id => document.getElementById(id));
+                const send = document.querySelector('.send-button');
+                controls.forEach(control => control.hidden = false);
+                send.hidden = true;
+                const startRect = start.getBoundingClientRect();
+                const endRect = end.getBoundingClientRect();
+                const controlsAreGrouped = controls.every(control => control.parentElement === end);
+                const onToolbarRow = [...controls, document.querySelector('#composer-action-btn')]
+                    .every(control => Math.abs(control.getBoundingClientRect().y - toolbar.getBoundingClientRect().y) < 20);
+                return {
+                    valid: controlsAreGrouped && startRect.left < endRect.left && onToolbarRow,
+                };
+            })()""")
+            await cdp.screenshot(page, artifacts / 'composer-active-controls.png', 1440, 1000)
+            check(composer_active_layout and composer_active_layout['valid'],
+                  'Active queue, steer, and stop controls stay grouped at the send edge', results)
             inference_result = await cdp.evaluate(page, """(async () => {
                 const {PageHandler} = await import('./ark.mojom-webui.js');
                 const remote = PageHandler.getRemote();
