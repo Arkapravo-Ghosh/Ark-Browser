@@ -62,4 +62,18 @@ echo "2. Using statically linked CPU and Metal backends from the local build."
 echo "3. Ad-hoc signing bundled binary..."
 codesign --force --sign - "$MACOS_DIR/llama-cli"
 
+# Record the architectures this exact llama.cpp build can load. The model
+# manager refuses a GGUF whose general.architecture is absent from this list
+# before downloading it, instead of failing at first use.
+ARCH_FILE="$APP_BUNDLE/Contents/Resources/ark-llama-architectures.txt"
+python3 - "$ROOT_DIR/third_party/llama.cpp/src/llama-arch.cpp" "$ARCH_FILE" <<'PY'
+import re, sys
+src = open(sys.argv[1], encoding="utf-8").read()
+names = sorted(set(re.findall(r'\{\s*LLM_ARCH_[A-Z0-9_]+\s*,\s*"([^"]+)"\s*\}', src)))
+names = [n for n in names if n != "(unknown)"]
+assert len(names) > 50, names
+open(sys.argv[2], "w", encoding="utf-8").write("\n".join(names) + "\n")
+print(f"Recorded {len(names)} llama.cpp architectures")
+PY
+
 echo "=== Bundled llama.cpp successfully into Ark Browser.app ==="

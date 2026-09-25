@@ -86,11 +86,14 @@ import platform
 from types import SimpleNamespace
 
 import mlx.core as mx
+import mlx_lm
 import mlx_vlm
 
 assert platform.machine() == "arm64", platform.machine()
 assert mx.metal.is_available(), "MLX Metal backend is unavailable"
 assert mlx_vlm is not None
+# Text-only MLX checkpoints run through MLX-LM, a dependency of MLX-VLM.
+assert mlx_lm is not None
 
 runner_path = os.environ["ARK_MLX_RUNNER"]
 spec = importlib.util.spec_from_file_location("ark_mlx_runner", runner_path)
@@ -99,6 +102,14 @@ runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 assert runner.completion_text(SimpleNamespace(text="ark-mlx-ok")) == "ark-mlx-ok"
 assert runner.completion_text("legacy-result") == "legacy-result"
+assert runner.select_backend({"model_type": "llama"}) == "lm"
+assert runner.select_backend(
+    {"model_type": "mllama", "vision_config": {}}) == "vlm"
+# MLX-VLM 0.5.0 model files hand 0-d arrays to mx.tile/mx.repeat; the runner's
+# shim must make that work on whichever mlx this bundle resolved.
+runner.install_mlx_compat_shims()
+assert mx.tile(mx.zeros((2, 3)), (mx.array(2), 1)).shape == (4, 3)
+assert mx.repeat(mx.zeros((2,)), mx.array(3), axis=0).shape == (6,)
 print("MLX Metal device:", mx.device_info())
 PY
 
