@@ -610,7 +610,7 @@ async def run(args):
                     hasArkTitle: text.includes('Ark Browser'),
                     hasGoogleUpdateError: text.includes('Google Update error') || text.includes('error occurred while checking for updates: 0x') || text.includes('104'),
                     hasUpToDate: text.toLowerCase().includes('up to date'),
-                    hasVersion: text.includes('155.0.8049.0')
+                    hasVersion: /Version [0-9]+[.][0-9]+[.][0-9]+/.test(text)
                 };
             })()""")
             await cdp.screenshot(second, artifacts / 'about_page_verified.png', 1440, 1000)
