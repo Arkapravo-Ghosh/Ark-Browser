@@ -122,10 +122,13 @@ def main():
     print("\n3. Updating release/version.json...")
     manifest = load_manifest()
     manifest['name'] = 'Ark Browser'
+    # A no-upload preparation run and the later upload must publish exactly
+    # the same manifest bytes that were committed with the release tag.
+    if manifest.get('version') != version_tag or not manifest.get('release_date'):
+        manifest['release_date'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     manifest['version'] = version_tag
     manifest['release_tag'] = version_tag
     manifest['channel'] = 'stable'
-    manifest['release_date'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     manifest['prerelease'] = bool(args.prerelease)
     manifest['release_notes_url'] = f"https://github.com/{REPO_SLUG}/releases/tag/{version_tag}"
 
@@ -218,8 +221,10 @@ def main():
                 print(f"   Uploaded assets to {version_tag} successfully!")
             else:
                 print(f"   gh release create output:\n{res.stderr}", file=sys.stderr)
+                sys.exit(res.returncode)
     except Exception as e:
         print(f"   Error running gh CLI: {e}", file=sys.stderr)
+        sys.exit(1)
 
     print("\nRelease publish sequence finished!")
 

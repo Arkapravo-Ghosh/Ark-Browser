@@ -134,16 +134,16 @@ source scripts/env.sh
 ./scripts/build-release-dmg.sh --build
 ```
 
-This uses `out/ArkRelease` (`is_component_build = false`, `is_debug = false`, stripped symbols), bundles the locally compiled `llama.cpp` and MLX-VLM runtimes, signs nested macOS code, and writes release artifacts under `dist/`.
+This uses `out/ArkRelease` (`is_component_build = false`, `is_debug = false`, `is_official_build = true`, stripped symbols), bundles the locally compiled `llama.cpp` and MLX-VLM runtimes, signs nested macOS code, and writes release artifacts under `dist/`.
 
 To publish a version after updating the Ark version constants in `chromium/src`:
 
 ```zsh
 VERSION="<next-version>"
-python3 scripts/publish-release.py -v "$VERSION" --build
+python3 scripts/publish-release.py -v "$VERSION" --build --no-upload
 ```
 
-The publisher builds when requested, computes exact sizes and SHA-256 digests, updates `release/version.json`, and uses the GitHub CLI to upload the DMG, ZIP, and manifest. Review the generated artifacts and manifest before pushing the version change. A GitHub CLI login with release permissions is required.
+The publisher builds when requested, computes exact sizes and SHA-256 digests, and updates `release/version.json`. Review the generated artifacts and manifest, then push the Chromium fork first. Commit and push the root submodule pointer and manifest, push the version tag on that root commit, and publish with `python3 scripts/publish-release.py -v "$VERSION"` (add `--notes` for release notes). The second pass preserves the prepared manifest timestamp and uploads the DMG, ZIP, and manifest. A GitHub CLI login with release permissions is required.
 
 When `ark.icon/` changes, run `./scripts/sync-mac-icon.sh` before the build. When the pinned `third_party/llama.cpp` source changes, run `./scripts/build-llama-runtime.sh`; the bundlers then use that local build rather than Homebrew's installation.
 

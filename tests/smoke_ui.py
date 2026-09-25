@@ -610,12 +610,16 @@ async def run(args):
                     hasArkTitle: text.includes('Ark Browser'),
                     hasGoogleUpdateError: text.includes('Google Update error') || text.includes('error occurred while checking for updates: 0x') || text.includes('104'),
                     hasUpToDate: text.toLowerCase().includes('up to date'),
-                    hasVersion: /Version [0-9]+[.][0-9]+[.][0-9]+/.test(text)
+                    hasVersion: /Version [0-9]+[.][0-9]+[.][0-9]+/.test(text),
+                    buildLabel: text.includes('Official Build') ? 'Official Build' :
+                        text.includes('Developer Build') ? 'Developer Build' : ''
                 };
             })()""")
             await cdp.screenshot(second, artifacts / 'about_page_verified.png', 1440, 1000)
             check(about_info and about_info.get('hasArkTitle') and not about_info.get('hasGoogleUpdateError') and about_info.get('hasUpToDate') and about_info.get('hasVersion'),
                   'About Ark Browser page displays version and reports up to date without errors', results)
+            check(about_info and about_info.get('buildLabel') == args.expected_build_label,
+                  f'About page labels this build {args.expected_build_label}', results)
 
             errors = [e for e in cdp.events if e['method'] == 'Runtime.exceptionThrown'
                       and 'ark' in json.dumps(e)]
@@ -645,4 +649,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', type=Path, default=default_binary())
     parser.add_argument('--artifacts', type=Path, default=ROOT / 'test-results')
+    parser.add_argument('--expected-build-label', choices=('Developer Build', 'Official Build'),
+                        default='Developer Build')
     asyncio.run(run(parser.parse_args()))

@@ -69,6 +69,8 @@ if [[ ! -f "$BUILD_DIR/args.gn" ]]; then
   cat << 'EOF' > "$BUILD_DIR/args.gn"
 is_debug = false
 is_component_build = false
+is_official_build = true
+chrome_pgo_phase = 0
 symbol_level = 0
 dcheck_always_on = false
 generate_about_credits = true
@@ -78,6 +80,14 @@ EOF
 elif [[ ! -f "$BUILD_DIR/build.ninja" ]]; then
   echo "1. Generating ninja build files in $BUILD_DIR..."
   "$GN_BIN" gen --root="$CHROMIUM_SRC" "$BUILD_DIR"
+fi
+
+# Existing output directories retain their args.gn. Refuse to package one
+# configured as a developer build, since its About page and optimization level
+# would differ from the release we advertise.
+if ! grep -Eq '^[[:space:]]*is_official_build[[:space:]]*=[[:space:]]*true([[:space:]]*(#.*)?)?$' "$BUILD_DIR/args.gn"; then
+  echo "Error: $BUILD_DIR/args.gn must set is_official_build = true." >&2
+  exit 1
 fi
 
 if [[ "$SETUP_ONLY" == true ]]; then
@@ -131,11 +141,9 @@ fi
 mkdir -p "$DIST_DIR"
 
 STAGE_DIR="$(mktemp -d -t ark_release_stage_XXXXXX)"
-HYBRID_DMG="$(mktemp -t ark_release_hybrid_XXXXXX).dmg"
 
 cleanup() {
   rm -rf "$STAGE_DIR"
-  rm -f "$HYBRID_DMG"
 }
 trap cleanup EXIT
 
@@ -187,19 +195,15 @@ if [[ -f "$ICON_SRC" ]]; then
   fi
 fi
 
-echo "8. Generating compressed disk image ($DMG_NAME)..."
+echo "8. Generating compressed APFS disk image ($DMG_NAME)..."
 rm -f "$DMG_PATH"
 
-hdiutil makehybrid \
-  -hfs \
-  -hfs-volume-name "$VOLUME_NAME" \
-  -ov "$STAGE_DIR" \
-  -o "$HYBRID_DMG"
-
-hdiutil convert \
+hdiutil create \
+  -fs APFS \
+  -volname "$VOLUME_NAME" \
+  -srcfolder "$STAGE_DIR" \
   -format UDZO \
-  -imagekey zlib-level=9 \
-  -ov "$HYBRID_DMG" \
+  -ov \
   -o "$DMG_PATH"
 
 echo "9. Generating compressed application archive (Ark-Browser-mac-arm64.zip)..."
